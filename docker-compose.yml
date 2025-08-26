@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_DB: travel_DB
+      POSTGRES_USER: lexc
+      POSTGRES_PASSWORD: secretpassw0rd
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DEBUG=1
+      - DATABASE_URL=postgresql://lexc:secretpassw0rd@db:5432/travel_DB
+
+
+volumes:
+  postgres_data:
