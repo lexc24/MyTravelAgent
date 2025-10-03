@@ -3,8 +3,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import (ActivityViewSet, DestinationViewSet, FlightViewSet,
-                    HotelViewSet, PlanningSessionViewSet, TripViewSet,
+from .views import (DestinationViewSet, PlanningSessionViewSet, TripViewSet,
                     UserPreferencesViewSet)
 
 # Create router and register ViewSets
@@ -13,9 +12,6 @@ router.register(r'user-preferences', UserPreferencesViewSet, basename='userprefe
 router.register(r'trips', TripViewSet, basename='trips')
 router.register(r'planning-sessions', PlanningSessionViewSet, basename='planningsessions')
 router.register(r'destinations', DestinationViewSet, basename='destinations')
-router.register(r'hotels', HotelViewSet, basename='hotels')
-router.register(r'flights', FlightViewSet, basename='flights')
-router.register(r'activities', ActivityViewSet, basename='activities')
 
 urlpatterns = [
     path('', include(router.urls)),

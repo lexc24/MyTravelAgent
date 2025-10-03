@@ -1,9 +1,7 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from .models import (
-    UserPreferences, Trip, PlanningSession, Conversation,
-    Destination, Hotel, Flight, Activity
-)
+
+from .models import Destination, PlanningSession, Trip, UserPreferences
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -44,32 +42,32 @@ class DestinationSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class HotelSerializer(serializers.ModelSerializer):
-    """Hotel serializer with destination details"""
-    destination = DestinationSerializer(read_only=True)
+# class HotelSerializer(serializers.ModelSerializer):
+#     """Hotel serializer with destination details"""
+#     destination = DestinationSerializer(read_only=True)
 
-    class Meta:
-        model = Hotel
-        fields = '__all__'
-
-
-class FlightSerializer(serializers.ModelSerializer):
-    """Flight serializer with destination details"""
-    destination = DestinationSerializer(read_only=True)
-    duration_formatted = serializers.ReadOnlyField()
-
-    class Meta:
-        model = Flight
-        fields = '__all__'
+#     class Meta:
+#         model = Hotel
+#         fields = '__all__'
 
 
-class ActivitySerializer(serializers.ModelSerializer):
-    """Activity serializer"""
-    destination = DestinationSerializer(read_only=True)
+# class FlightSerializer(serializers.ModelSerializer):
+#     """Flight serializer with destination details"""
+#     destination = DestinationSerializer(read_only=True)
+#     duration_formatted = serializers.ReadOnlyField()
 
-    class Meta:
-        model = Activity
-        fields = '__all__'
+#     class Meta:
+#         model = Flight
+#         fields = '__all__'
+
+
+# class ActivitySerializer(serializers.ModelSerializer):
+#     """Activity serializer"""
+#     destination = DestinationSerializer(read_only=True)
+
+#     class Meta:
+#         model = Activity
+#         fields = '__all__'
 
 
 class TripListSerializer(serializers.ModelSerializer):
@@ -89,9 +87,9 @@ class TripListSerializer(serializers.ModelSerializer):
 class TripDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for trip detail view"""
     destination = DestinationSerializer(read_only=True)
-    selected_hotel = HotelSerializer(read_only=True)
-    selected_outbound_flight = FlightSerializer(read_only=True)
-    selected_return_flight = FlightSerializer(read_only=True)
+    # selected_hotel = HotelSerializer(read_only=True)
+    # selected_outbound_flight = FlightSerializer(read_only=True)
+    # selected_return_flight = FlightSerializer(read_only=True)
     duration_days = serializers.ReadOnlyField()
     total_estimated_cost = serializers.ReadOnlyField()
     user = UserSerializer(read_only=True)
@@ -106,11 +104,25 @@ class TripCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Trip
         fields = [
-            'title', 'description', 'destination', 'start_date', 'end_date',
-            'budget', 'travelers_count', 'hotel_checkin_date', 'hotel_checkout_date',
-            'hotel_guests', 'hotel_rooms', 'outbound_flight_date', 'return_flight_date',
-            'flight_passengers'
+            'id',  # Include ID for the response
+            'title', 
+            'description', 
+            'destination', 
+            'start_date', 
+            'end_date',
+            'budget', 
+            'travelers_count',
+            'status'
         ]
+        read_only_fields = ['id', 'status']  # ID and status are read-only
+        extra_kwargs = {
+            'description': {'required': False},
+            'destination': {'required': False},
+            'start_date': {'required': False},
+            'end_date': {'required': False},
+            'budget': {'required': False},
+            'travelers_count': {'required': False},
+        }
 
     def validate(self, data):
         """Validate trip dates"""
@@ -119,54 +131,49 @@ class TripCreateUpdateSerializer(serializers.ModelSerializer):
         
         if start_date and end_date and start_date >= end_date:
             raise serializers.ValidationError("End date must be after start date")
-        
-        # Validate hotel dates if provided
-        checkin = data.get('hotel_checkin_date')
-        checkout = data.get('hotel_checkout_date')
-        
-        if checkin and checkout and checkin >= checkout:
-            raise serializers.ValidationError("Hotel checkout must be after checkin")
             
         return data
 
-
-class ConversationSerializer(serializers.ModelSerializer):
-    """Conversation serializer for chat messages"""
-    class Meta:
-        model = Conversation
-        fields = ['id', 'message_type', 'content', 'stage_when_sent', 'created_at']
-
+# Add these to api/serializers.py
 
 class PlanningSessionListSerializer(serializers.ModelSerializer):
     """Planning session list serializer"""
     trip = TripListSerializer(read_only=True)
+    progress_percentage = serializers.ReadOnlyField()
+    is_completed = serializers.ReadOnlyField()
 
     class Meta:
         model = PlanningSession
         fields = [
             'id', 'trip', 'current_stage', 'is_active', 'stages_completed',
-            'started_at', 'last_interaction_at', 'completed_at'
+            'started_at', 'last_interaction_at', 'completed_at',
+            'progress_percentage', 'is_completed'
         ]
 
 
 class PlanningSessionDetailSerializer(serializers.ModelSerializer):
-    """Detailed planning session serializer with conversations"""
-    trip = TripDetailSerializer(read_only=True)
-    conversations = ConversationSerializer(many=True, read_only=True)
-    recent_conversations = serializers.SerializerMethodField()
-
+    """Detailed serializer for planning session"""
+    trip = TripListSerializer(read_only=True)
+    progress_percentage = serializers.ReadOnlyField()
+    is_completed = serializers.ReadOnlyField()
+    duration_minutes = serializers.SerializerMethodField()
+    next_stage = serializers.SerializerMethodField()
+    
     class Meta:
         model = PlanningSession
         fields = [
-            'id', 'trip', 'current_stage', 'is_active', 'session_data',
-            'stages_completed', 'started_at', 'last_interaction_at', 
-            'completed_at', 'conversations', 'recent_conversations'
+            'id', 'trip', 'current_stage', 'is_active', 
+            'session_data', 'stages_completed',
+            'started_at', 'last_interaction_at', 'completed_at',
+            'progress_percentage', 'is_completed', 'duration_minutes',
+            'next_stage'
         ]
-
-    def get_recent_conversations(self, obj):
-        """Get last 20 conversations for context"""
-        recent = obj.conversations.all()[:20]
-        return ConversationSerializer(recent, many=True).data
+        read_only_fields = ['id', 'started_at', 'last_interaction_at', 'completed_at']
+    
+    
+    def get_next_stage(self, obj):
+        """Get the next stage in the workflow"""
+        return obj.get_next_stage() if not obj.is_completed else None
 
 
 class PlanningSessionCreateSerializer(serializers.ModelSerializer):
@@ -174,49 +181,41 @@ class PlanningSessionCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlanningSession
         fields = ['trip', 'current_stage', 'session_data']
-
-
-class SendMessageSerializer(serializers.Serializer):
-    """Serializer for sending messages to AI"""
-    message = serializers.CharField(max_length=1000)
+        extra_kwargs = {
+            'current_stage': {'required': False},  # Will default to 'destination'
+            'session_data': {'required': False}
+        }
     
-    def validate_message(self, value):
-        if not value.strip():
-            raise serializers.ValidationError("Message cannot be empty")
-        return value.strip()
-
-
-class SelectHotelSerializer(serializers.Serializer):
-    """Serializer for hotel selection"""
-    hotel_id = serializers.IntegerField()
-    checkin_date = serializers.DateField(required=False)
-    checkout_date = serializers.DateField(required=False)
-    guests = serializers.IntegerField(min_value=1, required=False)
-    rooms = serializers.IntegerField(min_value=1, default=1)
-
-    def validate(self, data):
-        checkin = data.get('checkin_date')
-        checkout = data.get('checkout_date')
+    def validate_trip(self, value):
+        """Ensure no other active session exists for this trip"""
+        existing = PlanningSession.objects.filter(
+            trip=value
+        ).exclude(current_stage='completed').exists()
         
-        if checkin and checkout and checkin >= checkout:
-            raise serializers.ValidationError("Checkout date must be after checkin date")
-        
-        return data
+        if existing:
+            raise serializers.ValidationError(
+                "An active planning session already exists for this trip. Complete or delete it first."
+            )
+        return value
 
 
-class SelectFlightsSerializer(serializers.Serializer):
-    """Serializer for flight selection (both outbound and return)"""
-    outbound_flight_id = serializers.IntegerField()
-    return_flight_id = serializers.IntegerField(required=False)
-    outbound_date = serializers.DateField(required=False)
-    return_date = serializers.DateField(required=False)
-    passengers = serializers.IntegerField(min_value=1, required=False)
+class PlanningSessionUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating planning session"""
+    class Meta:
+        model = PlanningSession
+        fields = ['current_stage', 'session_data', 'stages_completed']
+        extra_kwargs = {
+            'stages_completed': {'required': False}
+        }
+    
+    def validate_current_stage(self, value):
+        """Ensure valid stage value"""
+        valid_stages = [stage[0] for stage in PlanningSession.PLANNING_STAGES]
+        if value not in valid_stages:
+            raise serializers.ValidationError(
+                f"Invalid stage. Must be one of: {', '.join(valid_stages)}"
+            )
+        return value
 
-    def validate(self, data):
-        outbound_date = data.get('outbound_date')
-        return_date = data.get('return_date')
-        
-        if outbound_date and return_date and outbound_date >= return_date:
-            raise serializers.ValidationError("Return date must be after outbound date")
-        
-        return data
+
+

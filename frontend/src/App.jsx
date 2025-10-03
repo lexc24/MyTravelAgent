@@ -1,11 +1,11 @@
-import react from "react"
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
-import Login from "./pages/Login"
-import Register from "./pages/Register"
-import Home from "./pages/Home"
-import NotFound from "./pages/NotFound"
+import '@carbon/styles/css/styles.css'
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 import ProtectedRoute from "./components/ProtectedRoute"
-import '@carbon/styles/css/styles.css';
+import Home from "./pages/Home"
+import Login from "./pages/Login"
+import NotFound from "./pages/NotFound"
+import RecommendationChat from "./pages/RecommendationChat"
+import Register from "./pages/Register"
 
 
 function Logout(){
@@ -29,6 +29,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Home />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/trips/:tripId/chat"
+          element={
+            <ProtectedRoute>
+              <RecommendationChat />
             </ProtectedRoute>
           }
         />
