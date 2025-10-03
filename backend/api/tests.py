@@ -597,3 +597,173 @@ class SerializerValidationTests(TestCase):
         updated_trip = serializer.save()
         self.assertEqual(updated_trip.status, 'planning')  # Should not change
 
+
+# ============================================
+# ViewSet Custom Actions (CRITICAL - 0% coverage currently)
+# ============================================
+
+class PlanningSessionActionsTests(APITestCase):
+    """Test the custom actions you wrote"""
+    
+    def setUp(self):
+        self.user = User.objects.create_user('test', 'test@test.com', 'pass')
+        self.client.force_authenticate(user=self.user)
+        self.trip = Trip.objects.create(user=self.user, title="Test")
+    
+    def test_advance_stage_basic_flow(self):
+        """Test advancing through stages works"""
+        session = PlanningSession.objects.create(trip=self.trip, current_stage='destination')
+        
+        response = self.client.post(f'/api/planning-sessions/{session.id}/advance_stage/')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['current_stage'], 'accommodation')
+        session.refresh_from_db()
+        self.assertIn('destination', session.stages_completed)
+    
+    def test_advance_stage_updates_trip_status(self):
+        """Test that trip status syncs with planning stage"""
+        session = PlanningSession.objects.create(trip=self.trip, current_stage='destination')
+        
+        response = self.client.post(f'/api/planning-sessions/{session.id}/advance_stage/')
+        
+        # After advancing from 'destination', we're now at 'accommodation'
+        # which maps to 'hotels_selected' status
+        self.trip.refresh_from_db()
+        self.assertEqual(response.data['current_stage'], 'accommodation')
+        self.assertEqual(self.trip.status, 'hotels_selected')
+    
+    def test_advance_to_completion(self):
+        """Test completing the planning session"""
+        session = PlanningSession.objects.create(trip=self.trip, current_stage='finalization')
+        
+        response = self.client.post(f'/api/planning-sessions/{session.id}/advance_stage/')
+        
+        session.refresh_from_db()
+        self.assertEqual(session.current_stage, 'completed')
+        self.assertFalse(session.is_active)
+        self.assertIsNotNone(session.completed_at)
+    
+    def test_status_endpoint(self):
+        """Test the status endpoint returns progress info"""
+        session = PlanningSession.objects.create(
+            trip=self.trip,
+            current_stage='accommodation',
+            stages_completed=['destination']
+        )
+        
+        response = self.client.get(f'/api/planning-sessions/{session.id}/status/')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('progress_percentage', response.data)
+        self.assertTrue(response.data['can_continue'])
+    
+    def test_cannot_access_other_users_session(self):
+        """Test authorization on planning sessions"""
+        other_user = User.objects.create_user('other', 'other@test.com', 'pass')
+        other_trip = Trip.objects.create(user=other_user, title="Other")
+        other_session = PlanningSession.objects.create(trip=other_trip)
+        
+        response = self.client.post(f'/api/planning-sessions/{other_session.id}/advance_stage/')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class TripFilteringTests(APITestCase):
+    """Test filtering and ordering features"""
+    
+    def setUp(self):
+        self.user = User.objects.create_user('test', 'test@test.com', 'pass')
+        self.client.force_authenticate(user=self.user)
+    
+    def test_filter_by_status(self):
+        """Test filtering trips by status"""
+        Trip.objects.create(user=self.user, title="Planning", status='planning')
+        Trip.objects.create(user=self.user, title="Booked", status='booked')
+        
+        response = self.client.get('/api/trips/?status=planning')
+        
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['status'], 'planning')
+    
+    def test_filter_by_destination(self):
+        """Test filtering trips by destination"""
+        dest = Destination.objects.create(name="Paris", country="France")
+        Trip.objects.create(user=self.user, title="Paris", destination=dest)
+        Trip.objects.create(user=self.user, title="Nowhere")
+        
+        response = self.client.get(f'/api/trips/?destination={dest.id}')
+        
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['title'], 'Paris')
+
+
+# ============================================
+# Important Edge Cases (Prevent Real Bugs)
+# ============================================
+
+class TripValidationTests(APITestCase):
+    """Test validation that prevents bad data"""
+    
+    def setUp(self):
+        self.user = User.objects.create_user('test', 'test@test.com', 'pass')
+        self.client.force_authenticate(user=self.user)
+        self.trip = Trip.objects.create(user=self.user, title="Test Trip")  # ADDED THIS LINE
+    
+    def test_end_date_before_start_date_rejected(self):
+        """Test that invalid date range is rejected"""
+        data = {
+            'title': 'Bad Dates',
+            'start_date': '2025-03-10',
+            'end_date': '2025-03-05'
+        }
+        
+        response = self.client.post('/api/trips/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_status_field_is_readonly(self):
+        """Test that users can't manually change trip status"""
+        trip = Trip.objects.create(user=self.user, title="Test", status='planning')
+        
+        response = self.client.patch(f'/api/trips/{trip.id}/', 
+                                     {'status': 'booked'}, format='json')
+        
+        trip.refresh_from_db()
+        self.assertEqual(trip.status, 'planning')  # Should not change
+    
+    def test_create_session_removes_old_session(self):
+        """Test that creating new session deletes old one"""
+        old_session = PlanningSession.objects.create(trip=self.trip)
+        old_id = old_session.id
+        
+        data = {'trip': self.trip.id}
+        self.client.post('/api/planning-sessions/', data, format='json')
+        
+        self.assertFalse(PlanningSession.objects.filter(id=old_id).exists())
+
+
+class PermissionTests(APITestCase):
+    """Test that users can only access their own data"""
+    
+    def setUp(self):
+        self.user = User.objects.create_user('user1', 'user1@test.com', 'pass')
+        self.other = User.objects.create_user('user2', 'user2@test.com', 'pass')
+        self.client.force_authenticate(user=self.user)
+    
+    def test_cannot_see_other_users_trips(self):
+        """Test trip list only shows user's trips"""
+        Trip.objects.create(user=self.user, title="Mine")
+        Trip.objects.create(user=self.other, title="Theirs")
+        
+        response = self.client.get('/api/trips/')
+        
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['title'], 'Mine')
+    
+    def test_cannot_update_other_users_trip(self):
+        """Test users can't modify others' trips"""
+        other_trip = Trip.objects.create(user=self.other, title="Other")
+        
+        response = self.client.patch(f'/api/trips/{other_trip.id}/', 
+                                     {'title': 'Hacked'}, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

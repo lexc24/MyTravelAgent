@@ -186,17 +186,6 @@ class PlanningSessionCreateSerializer(serializers.ModelSerializer):
             'session_data': {'required': False}
         }
     
-    def validate_trip(self, value):
-        """Ensure no other active session exists for this trip"""
-        existing = PlanningSession.objects.filter(
-            trip=value
-        ).exclude(current_stage='completed').exists()
-        
-        if existing:
-            raise serializers.ValidationError(
-                "An active planning session already exists for this trip. Complete or delete it first."
-            )
-        return value
 
 
 class PlanningSessionUpdateSerializer(serializers.ModelSerializer):
