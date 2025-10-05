@@ -21,6 +21,7 @@ try:
         google_api_key=os.getenv("GOOGLE_API_KEY"),
         temperature=0
     )
+
 except:
     llm = None  # Will be mocked in tests
 
@@ -34,8 +35,10 @@ class Feedback(BaseModel):
     feedback: str = Field(
         description="If not valid, ask exactly one follow-up question."
     )
-
-evaluator = llm.with_structured_output(Feedback)
+try:
+    evaluator = llm.with_structured_output(Feedback)
+except:
+    evaluator = None
 
 # ————————————————
 # Helper: turn a numbered/bulleted blob into clean questions
@@ -164,8 +167,10 @@ builder.add_conditional_edges(
 )
 
 builder.add_edge("destination_generator", END)
-
-optimizer_workflow = builder.compile()
+try:
+    optimizer_workflow = builder.compile()
+except:
+    optimizer_workflow = None
 
 # ————————————————
 # 6) Django-facing wrapper
