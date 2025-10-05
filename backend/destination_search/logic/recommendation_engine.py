@@ -15,11 +15,14 @@ from typing_extensions import Literal, TypedDict
 # 1) LLM setup
 # ————————————————
 load_dotenv()
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
-    google_api_key=os.getenv("GOOGLE_API_KEY"),
-    temperature=0
-)
+try:
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-2.0-flash",
+        google_api_key=os.getenv("GOOGLE_API_KEY"),
+        temperature=0
+    )
+except:
+    llm = None  # Will be mocked in tests
 
 # ————————————————
 # 2) Feedback schema (kept for future use)
