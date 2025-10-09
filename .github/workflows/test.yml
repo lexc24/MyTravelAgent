@@ -1,4 +1,4 @@
-name: Django CI/CD Pipeline
+name: Test Code Base
 
 on:
   push:
@@ -65,7 +65,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           cd backend
-          python manage.py test tests.test_environment --verbosity=2
+          python manage.py test tests.environment_tests --verbosity=2
 
   # Integration tests - verify components work together
   integration-tests:
