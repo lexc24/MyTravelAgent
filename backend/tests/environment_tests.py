@@ -628,8 +628,7 @@ class DeploymentChecklistTests(TestCase):
             'whitenoise',
             'gunicorn',  # For Render deployment
             'dj-database-url',
-            'python-dotenv',
-            'google-generativeai',  # For Gemini API
+            'python-dotenv'
         ]
         
         missing = []
