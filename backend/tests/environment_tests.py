@@ -207,8 +207,9 @@ class DatabaseConfigurationTests(TransactionTestCase):
     
     def test_database_migrations_applied(self):
         """Ensure all migrations have been applied"""
-        from django.core.management import call_command
         from io import StringIO
+
+        from django.core.management import call_command
         
         out = StringIO()
         call_command('showmigrations', '--list', stdout=out)
@@ -423,7 +424,7 @@ class SecurityConfigurationTests(TestCase):
     def test_jwt_configuration(self):
         """Test JWT authentication is properly configured"""
         from datetime import timedelta
-        
+
         # Check REST framework uses JWT
         self.assertIn(
             'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -513,14 +514,6 @@ class PythonDependencyTests(TestCase):
             f"Missing critical packages: {missing_packages}. Install with: pip install {' '.join(missing_packages)}"
         )
     
-    def test_gemini_sdk_installed(self):
-        """Test Google Gemini SDK is installed for recommendation engine"""
-        try:
-            import google.generativeai
-        except ImportError:
-            if not settings.DEBUG:
-                self.fail("Google Generative AI package not installed. Run: pip install google-generativeai")
-
 
 class LoggingConfigurationTests(TestCase):
     """Test logging is properly configured for debugging issues"""

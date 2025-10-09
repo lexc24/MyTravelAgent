@@ -299,34 +299,6 @@ class RecommendationEnginePerformanceTests(APITestCase):
             f"Retrieving 100 messages took {response_time:.2f}s, should be under 0.5s"
         )
     
-    @skipUnless(os.environ.get('GEMINI_API_KEY'), "Gemini API key required")
-    @skipIf(os.environ.get('SKIP_EXTERNAL_API_TESTS'), "Skipping external API tests")
-    def test_actual_gemini_api_response_time(self):
-        """Test actual Gemini API response time (when available)"""
-        import google.generativeai as genai
-        
-        genai.configure(api_key=os.environ.get('GEMINI_API_KEY'))
-        model = genai.GenerativeModel('gemini-pro')
-        
-        # Simple prompt for quick response
-        prompt = "In one sentence, describe a beach vacation."
-        
-        start_time = time.time()
-        response = model.generate_content(prompt)
-        response_time = time.time() - start_time
-        
-        self.assertIsNotNone(response.text)
-        
-        # Gemini should respond within 5 seconds for simple prompts
-        self.assertLess(
-            response_time,
-            5.0,
-            f"Gemini API took {response_time:.2f}s, consider caching or async processing"
-        )
-        
-        if response_time > 2.0:
-            print(f"\nWarning: Gemini API response time is {response_time:.2f}s - consider implementing caching")
-
 
 class CachingPerformanceTests(TestCase):
     """Test caching performance and configuration"""

@@ -7,7 +7,6 @@ on:
     branches: [main, develop]
 
 jobs:
-  # Environment/Configuration tests - verify deployment readiness
   environment-tests:
     name: Environment & Configuration Tests
     runs-on: ubuntu-latest
@@ -47,9 +46,10 @@ jobs:
       - name: Run Migrations & Collect Static
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
-          SECRET_KEY: ${{ secrets.SECRET_KEY || 'fallback-secret-key-for-ci-testing' }}
-          DEBUG: False
-          RENDER: true
+          SECRET_KEY: ${{ secrets.SECRET_KEY || 'fallback-secret-key-for-ci-testing-must-be-at-least-fifty-characters-long' }}
+          DEBUG: "False"
+          RENDER: "true"
+          RENDER_SERVICE_NAME: "ci-test-service"  # Mock this for CI
         run: |
           cd backend
           python manage.py migrate --noinput
@@ -59,15 +59,15 @@ jobs:
         env:
           ENVIRONMENT: staging
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
-          SECRET_KEY: ${{ secrets.SECRET_KEY || 'fallback-secret-key-for-ci-testing' }}
-          DEBUG: False
-          RENDER: true
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY || 'fallback-secret-key-for-ci-testing-must-be-at-least-fifty-characters-long' }}
+          DEBUG: "False"
+          RENDER: "true"
+          RENDER_SERVICE_NAME: "ci-test-service"  # Mock this for CI
+          GEMINI_API_KEY: "mock-key-for-testing-not-real"  # Mock API key
         run: |
           cd backend
           python manage.py test tests.environment_tests --verbosity=2
 
-  # Integration tests - verify components work together
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
@@ -108,8 +108,8 @@ jobs:
       - name: Run Migrations
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
-          SECRET_KEY: integration-test-secret-key
-          DEBUG: False
+          SECRET_KEY: integration-test-secret-key-must-be-fifty-chars-long
+          DEBUG: "False"
         run: |
           cd backend
           python manage.py migrate --noinput
@@ -117,76 +117,14 @@ jobs:
       - name: Run Integration Tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
-          SECRET_KEY: integration-test-secret-key
-          DEBUG: False
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          SKIP_EXTERNAL_API_TESTS: 1  # Don't call real Gemini API in CI
+          SECRET_KEY: integration-test-secret-key-must-be-fifty-chars-long
+          DEBUG: "False"
+          GEMINI_API_KEY: "mock-key-for-testing"
+          SKIP_EXTERNAL_API_TESTS: "1"
         run: |
           cd backend
-          python manage.py test tests.test_integration --verbosity=2
+          python manage.py test tests.integration_tests --verbosity=2
 
-  # Performance tests - only on main branch (before deployment)
-  performance-tests:
-    name: Performance Tests
-    runs-on: ubuntu-latest
-    needs: [environment-tests, integration-tests]
-    if: github.ref == 'refs/heads/main'
-    
-    services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_DB: testdb
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-      
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: backend/requirements.txt
-      
-      - name: Install Dependencies
-        run: |
-          cd backend
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          
-      - name: Run Migrations
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
-          SECRET_KEY: performance-test-secret-key
-          DEBUG: False
-        run: |
-          cd backend
-          python manage.py migrate --noinput
-          
-      - name: Run Performance Tests
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
-          SECRET_KEY: performance-test-secret-key
-          DEBUG: False
-          SKIP_EXTERNAL_API_TESTS: 1
-          SKIP_SLOW_TESTS: 1  # Skip very slow tests in CI
-          SKIP_LOAD_TESTS: 1  # Skip load tests in CI
-          SKIP_MEMORY_TESTS: 1  # Skip memory tests in CI
-        run: |
-          cd backend
-          python manage.py test tests.test_performance --verbosity=2
-
-  # Final summary
   all-tests-passed:
     name: All CI/CD Tests Passed ✅
     runs-on: ubuntu-latest

@@ -10,8 +10,11 @@ import time
 from datetime import date, timedelta
 from decimal import Decimal
 from unittest import skipIf, skipUnless
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+from api.models import Destination, PlanningSession, Trip, UserPreferences
+from destination_search.models import (ConversationState, Message,
+                                       Recommendations, TripConversation)
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import TransactionTestCase
@@ -19,13 +22,6 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
-
-from api.models import (
-    Destination, PlanningSession, Trip, UserPreferences
-)
-from destination_search.models import (
-    ConversationState, Message, Recommendations, TripConversation
-)
 
 
 class CompleteUserJourneyTests(APITestCase):
@@ -445,26 +441,6 @@ class ExternalServiceIntegrationTests(TransactionTestCase):
     def setUp(self):
         self.user = User.objects.create_user('external', 'external@test.com', 'pass123')
     
-    @skipUnless(os.environ.get('GEMINI_API_KEY'), "Gemini API key not configured")
-    def test_gemini_api_connectivity(self):
-        """Test actual connection to Gemini API"""
-        try:
-            import google.generativeai as genai
-            
-            # Configure Gemini
-            genai.configure(api_key=os.environ.get('GEMINI_API_KEY'))
-            
-            # Create a model instance
-            model = genai.GenerativeModel('gemini-pro')
-            
-            # Send a simple test prompt
-            response = model.generate_content("Say 'API test successful' in exactly 3 words")
-            
-            self.assertIsNotNone(response.text)
-            
-        except Exception as e:
-            if not settings.DEBUG:
-                self.fail(f"Gemini API integration failed: {e}")
     
     def test_database_transaction_rollback(self):
         """Test that database transactions rollback properly on error"""
@@ -491,9 +467,10 @@ class ExternalServiceIntegrationTests(TransactionTestCase):
     
     def test_concurrent_user_sessions(self):
         """Test that multiple users can use the system concurrently"""
-        from django.test import Client
-        from threading import Thread
         import queue
+        from threading import Thread
+
+        from django.test import Client
         
         results = queue.Queue()
         

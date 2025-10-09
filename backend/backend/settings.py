@@ -27,7 +27,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY')
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY', 
+    'django-insecure-fallback-key-for-development-only-change-this-in-production-very-long-key-12345'
+)
 
 # Allow missing SECRET_KEY during Docker build (collectstatic, etc.)
 if not SECRET_KEY:
@@ -138,9 +141,9 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / "staticfiles"
+# STATIC_URL - Fix the slash issue
+STATIC_URL = 'static/'  # Changed from '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -159,10 +162,13 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': not DEBUG,  # Add this - rotate in production
+    'BLACKLIST_AFTER_ROTATION': not DEBUG,  # Add this
+
 }
 
 # CORS Configuration - Environment-based settings
-CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True  # Changed from False
 
 if DEBUG:
     # Development settings
