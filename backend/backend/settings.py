@@ -141,8 +141,7 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# STATIC_URL - Fix the slash issue
-STATIC_URL = 'static/'  # Changed from '/static/'
+STATIC_URL = '/static/'  
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
@@ -167,6 +166,7 @@ SIMPLE_JWT = {
 
 }
 
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
 if DEBUG:
