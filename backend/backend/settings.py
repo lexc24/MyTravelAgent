@@ -167,27 +167,21 @@ SIMPLE_JWT = {
 
 }
 
-# CORS Configuration - Environment-based settings
-CORS_ALLOW_CREDENTIALS = True  # Changed from False
+CORS_ALLOW_CREDENTIALS = True
 
 if DEBUG:
-    # Development settings
     CORS_ALLOWED_ORIGINS = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
-    CORS_ALLOW_CREDENTIALS = True
-    # CSRF trusted origins for development
     CSRF_TRUSTED_ORIGINS = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
 else:
-    # Production settings
     CORS_ALLOWED_ORIGINS = [
         "https://my-travel-agent.onrender.com",
     ]
-    CORS_ALLOW_CREDENTIALS = False  # More secure for production
     CSRF_TRUSTED_ORIGINS = [
         "https://my-travel-agent.onrender.com",
     ]
@@ -240,21 +234,29 @@ if not DEBUG:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
 
-# Simple development logging (optional)
-if DEBUG:
-    LOGGING = {
-        'version': 1,
-        'disable_existing_loggers': False,
-        'handlers': {
-            'console': {
-                'class': 'logging.StreamHandler',
-            },
+# LOGGING should always be configured
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
         },
-        'loggers': {
-            'destination_search': {
-                'handlers': ['console'],
-                'level': 'DEBUG',
-                'propagate': False,
-            },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
         },
-    }
+        'destination_search': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+    },
+}

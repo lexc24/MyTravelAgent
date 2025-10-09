@@ -46,7 +46,7 @@ jobs:
       - name: Run Migrations & Collect Static
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
-          SECRET_KEY: ${{ secrets.SECRET_KEY || 'fallback-secret-key-for-ci-testing-must-be-at-least-fifty-characters-long' }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY || 'fallback-secret-key-for-ci-testing-must-be-at-least-fifty-characters-long-to-pass-security-tests' }}
           DEBUG: "False"
           RENDER: "true"
           RENDER_SERVICE_NAME: "ci-test-service"  # Mock this for CI
