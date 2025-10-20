@@ -42,15 +42,15 @@ class URLRoutingTests(APITestCase):
     def test_api_auth_urls_exist(self):
         """Test API authentication URLs exist"""
         # Registration
-        response = self.client.post('/api/user/register/', {})
+        response = self.client.post('/api/user/register', {})
         self.assertIn(response.status_code, [400, 201])  # Bad request or created
         
         # Token
-        response = self.client.post('/api/token/', {})
+        response = self.client.post('/api/token', {})
         self.assertIn(response.status_code, [400, 401])  # Bad request or unauthorized
         
         # Refresh
-        response = self.client.post('/api/token/refresh/', {})
+        response = self.client.post('/api/token/refresh', {})
         self.assertIn(response.status_code, [400, 401])
         
     def test_api_root_accessible(self):
@@ -242,7 +242,7 @@ class AuthenticationIntegrationTests(APITestCase):
         
         # 3. Use access token to access protected endpoint
         client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
-        response = client.get('/api/trips/')
+        response = client.get('/api/trips')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # 4. Refresh token
@@ -255,7 +255,7 @@ class AuthenticationIntegrationTests(APITestCase):
         
         # 5. Use new access token
         client.credentials(HTTP_AUTHORIZATION=f'Bearer {new_access_token}')
-        response = client.get('/api/trips/')
+        response = client.get('/api/trips')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
@@ -264,12 +264,12 @@ class ErrorHandlingTests(APITestCase):
     
     def test_404_for_nonexistent_endpoint(self):
         """Test 404 is returned for non-existent endpoints"""
-        response = self.client.get('/api/nonexistent/')
+        response = self.client.get('/api/nonexistent')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
     def test_401_for_unauthenticated_access(self):
         """Test 401 is returned for unauthenticated access to protected endpoints"""
-        response = self.client.get('/api/trips/')
+        response = self.client.get('/api/trips')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         
     def test_405_for_unsupported_methods(self):
@@ -278,5 +278,5 @@ class ErrorHandlingTests(APITestCase):
         self.client.force_authenticate(user=user)
         
         # Try to POST to a read-only endpoint (destinations is read-only)
-        response = self.client.post('/api/destinations/', {})
+        response = self.client.post('/api/destinations', {})
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)

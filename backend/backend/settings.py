@@ -48,6 +48,7 @@ if DEBUG:
 else:
     ALLOWED_HOSTS = ['.onrender.com', 'localhost']
 
+
 # Application definition
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -146,6 +147,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+APPEND_SLASH = False
 
 # REST Framework configuration
 REST_FRAMEWORK = {

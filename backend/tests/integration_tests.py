@@ -66,7 +66,7 @@ class CompleteUserJourneyTests(APITestCase):
         
         # Step 4: Update user preferences
         preferences = UserPreferences.objects.get(user=user)
-        preferences_url = f'/api/user-preferences/{preferences.id}/'
+        preferences_url = f'/api/user-preferences/{preferences.id}'
         preferences_data = {
             'preferences_text': 'I love beach destinations and cultural experiences',
             'budget_min': '2000',
@@ -78,7 +78,7 @@ class CompleteUserJourneyTests(APITestCase):
         self.assertEqual(pref_response.status_code, status.HTTP_200_OK)
         
         # Step 5: Create a new trip
-        trip_url = '/api/trips/'
+        trip_url = '/api/trips'
         trip_data = {
             'title': 'Summer Vacation 2025',
             'description': 'Looking for a relaxing beach vacation',
@@ -112,7 +112,7 @@ class CompleteUserJourneyTests(APITestCase):
             self.assertEqual(chat_response.data['stage'], 'asking_clarifications')
         
         # Step 7: Create planning session
-        session_url = '/api/planning-sessions/'
+        session_url = '/api/planning-sessions'
         session_data = {
             'trip': trip_id,
             'current_stage': 'destination'
@@ -188,7 +188,7 @@ class APIIntegrationTests(APITestCase):
     def test_trip_lifecycle_api_flow(self):
         """Test complete trip lifecycle through API"""
         # Create trip
-        create_response = self.client.post('/api/trips/', {
+        create_response = self.client.post('/api/trips', {
             'title': 'API Test Trip',
             'budget': '3000'
         })
@@ -196,28 +196,28 @@ class APIIntegrationTests(APITestCase):
         trip_id = create_response.data['id']
         
         # Update trip
-        update_response = self.client.patch(f'/api/trips/{trip_id}/', {
+        update_response = self.client.patch(f'/api/trips/{trip_id}', {
             'description': 'Updated description',
             'travelers_count': 3
         })
         self.assertEqual(update_response.status_code, status.HTTP_200_OK)
         
         # Get trip details
-        detail_response = self.client.get(f'/api/trips/{trip_id}/')
+        detail_response = self.client.get(f'/api/trips/{trip_id}')
         self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
         self.assertEqual(detail_response.data['travelers_count'], 3)
         
         # List trips
-        list_response = self.client.get('/api/trips/')
+        list_response = self.client.get('/api/trips')
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(list_response.data['results']), 1)
         
         # Delete trip
-        delete_response = self.client.delete(f'/api/trips/{trip_id}/')
+        delete_response = self.client.delete(f'/api/trips/{trip_id}')
         self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
         
         # Verify deletion
-        verify_response = self.client.get(f'/api/trips/{trip_id}/')
+        verify_response = self.client.get(f'/api/trips/{trip_id}')
         self.assertEqual(verify_response.status_code, status.HTTP_404_NOT_FOUND)
     
     def test_planning_session_workflow(self):
@@ -230,7 +230,7 @@ class APIIntegrationTests(APITestCase):
         )
         
         # Create planning session
-        session_response = self.client.post('/api/planning-sessions/', {
+        session_response = self.client.post('/api/planning-sessions', {
             'trip': trip.id,
             'current_stage': 'destination'
         })
@@ -241,11 +241,11 @@ class APIIntegrationTests(APITestCase):
         stages = ['destination', 'accommodation', 'flights', 'activities', 'itinerary', 'finalization']
         
         for i, expected_stage in enumerate(stages[1:], 1):
-            advance_response = self.client.post(f'/api/planning-sessions/{session_id}/advance_stage/')
+            advance_response = self.client.post(f'/api/planning-sessions/{session_id}/advance_stage')
             self.assertEqual(advance_response.status_code, status.HTTP_200_OK)
             
             # Get session details
-            detail_response = self.client.get(f'/api/planning-sessions/{session_id}/')
+            detail_response = self.client.get(f'/api/planning-sessions/{session_id}')
             self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
             
             if i < len(stages) - 1:
@@ -265,15 +265,15 @@ class APIIntegrationTests(APITestCase):
         other_trip = Trip.objects.create(user=other_user, title='Other Trip')
         
         # Try to access other user's trip
-        response = self.client.get(f'/api/trips/{other_trip.id}/')
+        response = self.client.get(f'/api/trips/{other_trip.id}')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Try to update other user's trip
-        response = self.client.patch(f'/api/trips/{other_trip.id}/', {'title': 'Hacked'})
+        response = self.client.patch(f'/api/trips/{other_trip.id}', {'title': 'Hacked'})
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Try to delete other user's trip
-        response = self.client.delete(f'/api/trips/{other_trip.id}/')
+        response = self.client.delete(f'/api/trips/{other_trip.id}')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Verify other trip is unchanged
@@ -281,7 +281,7 @@ class APIIntegrationTests(APITestCase):
         self.assertEqual(other_trip.title, 'Other Trip')
         
         # Verify can access own trip
-        response = self.client.get(f'/api/trips/{my_trip.id}/')
+        response = self.client.get(f'/api/trips/{my_trip.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
@@ -481,7 +481,7 @@ class ExternalServiceIntegrationTests(TransactionTestCase):
             User.objects.create_user(username, f'{username}@test.com', password)
             
             # Login
-            token_response = client.post('/api/token/', {
+            token_response = client.post('/api/token', {
                 'username': username,
                 'password': password
             })
@@ -491,7 +491,7 @@ class ExternalServiceIntegrationTests(TransactionTestCase):
                 
                 # Create trip
                 response = client.post(
-                    '/api/trips/',
+                    '/api/trips',
                     {'title': f'{username} Trip'},
                     HTTP_AUTHORIZATION=f'Bearer {token}'
                 )
@@ -527,13 +527,13 @@ class ErrorHandlingIntegrationTests(APITestCase):
     def test_api_error_responses(self):
         """Test that API returns proper error responses"""
         # Unauthenticated request
-        response = self.client.get('/api/trips/')
+        response = self.client.get('/api/trips')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertIn('detail', response.data)
         
         # Invalid data
         User.objects.create_user('tester', 'test@test.com', 'pass123')
-        response = self.client.post('/api/token/', {
+        response = self.client.post('/api/token', {
             'username': 'tester',
             'password': 'wrongpassword'
         })
