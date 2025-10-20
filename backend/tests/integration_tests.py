@@ -543,7 +543,7 @@ class ErrorHandlingIntegrationTests(APITestCase):
         user = User.objects.create_user('valid', 'valid@test.com', 'pass123')
         self.client.force_authenticate(user=user)
         
-        response = self.client.post('/api/trips/', {
+        response = self.client.post('/api/trips', {
             'title': '',  # Empty title
             'budget': 'not-a-number'  # Invalid budget
         })
