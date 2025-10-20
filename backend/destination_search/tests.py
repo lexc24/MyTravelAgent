@@ -1,19 +1,20 @@
 # destination_search/tests.py
 
-from unittest.mock import MagicMock, patch
 from datetime import timedelta
-from django.utils import timezone
+from unittest.mock import MagicMock, patch
 
 from api.models import Trip
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
 from .models import (ConversationState, Message, Recommendations,
                      TripConversation)
-from .serializers import ConversationSerializer, MessageSerializer, ConversationStateSerializer
+from .serializers import (ConversationSerializer, ConversationStateSerializer,
+                          MessageSerializer)
 
 
 class TripConversationModelTests(TestCase):
@@ -260,12 +261,12 @@ class ChatMessageAPITests(APITestCase):
     def test_chat_requires_authentication(self):
         """Test that chat endpoint requires authentication"""
         self.client.force_authenticate(user=None)
-        response = self.client.post('/destination_search/chat/', {})
+        response = self.client.post('/destination_search/chat', {})
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
     
     def test_chat_requires_trip_id(self):
         """Test validation of trip_id field"""
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'message': 'Hello'
         })
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -274,7 +275,7 @@ class ChatMessageAPITests(APITestCase):
     
     def test_chat_requires_message(self):
         """Test validation of message field"""
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': self.trip.id
         })
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -283,7 +284,7 @@ class ChatMessageAPITests(APITestCase):
     
     def test_chat_empty_message_rejected(self):
         """Test that empty/whitespace messages are rejected"""
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': self.trip.id,
             'message': '   '
         })
@@ -297,7 +298,7 @@ class ChatMessageAPITests(APITestCase):
             title="Other's Trip"
         )
         
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': other_trip.id,
             'message': 'test message'
         })
@@ -305,7 +306,7 @@ class ChatMessageAPITests(APITestCase):
     
     def test_chat_nonexistent_trip(self):
         """Test handling of nonexistent trip ID"""
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': 99999,
             'message': 'test message'
         })
@@ -320,7 +321,7 @@ class ChatMessageAPITests(APITestCase):
         }
         mock_workflow_manager.get_next_question.return_value = 'What is your budget?'
         
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': self.trip.id,
             'message': 'I want a beach vacation'
         })
@@ -350,7 +351,7 @@ class ChatMessageAPITests(APITestCase):
         self.trip.status = 'planning'
         self.trip.save()
         
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': self.trip.id,
             'message': 'Hello'
         })
@@ -363,7 +364,7 @@ class ChatMessageAPITests(APITestCase):
         """Test error handling when workflow fails"""
         mock_workflow_manager.process_initial_message.side_effect = Exception("Workflow error")
         
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': self.trip.id,
             'message': 'Hello'
         })
@@ -390,12 +391,12 @@ class GetConversationAPITests(APITestCase):
     def test_get_conversation_requires_authentication(self):
         """Test authentication is required"""
         self.client.force_authenticate(user=None)
-        response = self.client.get(f'/destination_search/conversations/{self.trip.id}/')
+        response = self.client.get(f'/destination_search/conversations/{self.trip.id}')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
     
     def test_get_nonexistent_conversation(self):
         """Test getting conversation that doesn't exist"""
-        response = self.client.get(f'/destination_search/conversations/{self.trip.id}/')
+        response = self.client.get(f'/destination_search/conversations/{self.trip.id}')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertIn('message', response.data)
         self.assertIn('No conversation started', response.data['message'])
@@ -404,7 +405,7 @@ class GetConversationAPITests(APITestCase):
         """Test getting conversation with no messages"""
         conversation = TripConversation.objects.create(trip=self.trip)
         
-        response = self.client.get(f'/destination_search/conversations/{self.trip.id}/')
+        response = self.client.get(f'/destination_search/conversations/{self.trip.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['messages']), 0)
         self.assertEqual(response.data['conversation_id'], conversation.id)
@@ -423,7 +424,7 @@ class GetConversationAPITests(APITestCase):
             content="Hi there!"
         )
         
-        response = self.client.get(f'/destination_search/conversations/{self.trip.id}/')
+        response = self.client.get(f'/destination_search/conversations/{self.trip.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['messages']), 2)
         
@@ -448,7 +449,7 @@ class GetConversationAPITests(APITestCase):
             total_questions=5
         )
         
-        response = self.client.get(f'/destination_search/conversations/{self.trip.id}/')
+        response = self.client.get(f'/destination_search/conversations/{self.trip.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('state', response.data)
         self.assertEqual(response.data['state']['current_stage'], 'asking_clarifications')
@@ -467,7 +468,7 @@ class GetConversationAPITests(APITestCase):
             locations=locations
         )
         
-        response = self.client.get(f'/destination_search/conversations/{self.trip.id}/')
+        response = self.client.get(f'/destination_search/conversations/{self.trip.id}')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('destinations', response.data)
         self.assertEqual(len(response.data['destinations']), 3)
@@ -479,7 +480,7 @@ class GetConversationAPITests(APITestCase):
         other_trip = Trip.objects.create(user=other_user, title="Other's Trip")
         TripConversation.objects.create(trip=other_trip)
         
-        response = self.client.get(f'/destination_search/conversations/{other_trip.id}/')
+        response = self.client.get(f'/destination_search/conversations/{other_trip.id}')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
@@ -500,12 +501,12 @@ class ResetConversationAPITests(APITestCase):
     def test_reset_requires_authentication(self):
         """Test authentication is required"""
         self.client.force_authenticate(user=None)
-        response = self.client.post(f'/destination_search/conversations/{self.trip.id}/reset/')
+        response = self.client.post(f'/destination_search/conversations/{self.trip.id}/reset')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
     
     def test_reset_nonexistent_trip(self):
         """Test resetting conversation for nonexistent trip"""
-        response = self.client.post('/destination_search/conversations/99999/reset/')
+        response = self.client.post('/destination_search/conversations/99999/reset')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
     
     def test_reset_conversation_success(self):
@@ -519,7 +520,7 @@ class ResetConversationAPITests(APITestCase):
         self.trip.status = 'ai_chat_active'
         self.trip.save()
         
-        response = self.client.post(f'/destination_search/conversations/{self.trip.id}/reset/')
+        response = self.client.post(f'/destination_search/conversations/{self.trip.id}/reset')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(TripConversation.objects.filter(trip=self.trip).exists())
@@ -534,7 +535,7 @@ class ResetConversationAPITests(APITestCase):
         self.trip.status = 'ai_chat_active'
         self.trip.save()
         
-        response = self.client.post(f'/destination_search/conversations/{self.trip.id}/reset/')
+        response = self.client.post(f'/destination_search/conversations/{self.trip.id}/reset')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.trip.refresh_from_db()
@@ -546,7 +547,7 @@ class ResetConversationAPITests(APITestCase):
         other_trip = Trip.objects.create(user=other_user, title="Other's Trip")
         TripConversation.objects.create(trip=other_trip)
         
-        response = self.client.post(f'/destination_search/conversations/{other_trip.id}/reset/')
+        response = self.client.post(f'/destination_search/conversations/{other_trip.id}/reset')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
@@ -594,7 +595,7 @@ class HelperFunctionTests(TestCase):
     def test_parse_destinations_ensures_three_results(self):
         """Test that parse_destinations always returns 3 destinations"""
         from destination_search.views import parse_destinations
-        
+
         # Test with only 1 destination
         text_one = "Paris, France\nBeautiful city"
         destinations = parse_destinations(text_one)
@@ -613,9 +614,9 @@ class HelperFunctionTests(TestCase):
     
     def test_handle_post_destination_message_commitment_detected(self):
         """Test detecting user commitment to a destination"""
-        from destination_search.views import handle_post_destination_message
         from api.models import Destination
-        
+        from destination_search.views import handle_post_destination_message
+
         # Setup
         user = User.objects.create_user('test', 'test@test.com', 'pass')
         trip = Trip.objects.create(user=user, title="Test", status='ai_chat_active')
@@ -648,7 +649,7 @@ class HelperFunctionTests(TestCase):
     def test_handle_post_destination_message_no_commitment(self):
         """Test handling non-commitment messages"""
         from destination_search.views import handle_post_destination_message
-        
+
         # Setup
         user = User.objects.create_user('test', 'test@test.com', 'pass')
         trip = Trip.objects.create(user=user, title="Test", status='ai_chat_active')
@@ -746,7 +747,7 @@ class SerializerTests(TestCase):
 
 def test_chat_blocks_sql_injection_attempts(self):
     """Test that SQL injection attempts are blocked in chat"""
-    response = self.client.post('/destination_search/chat/', {
+    response = self.client.post('/destination_search/chat', {
         'trip_id': self.trip.id,
         'message': "'; DROP TABLE users; --"
     })
@@ -766,14 +767,14 @@ class RateLimitingTests(APITestCase):
         """Test that rate limiting blocks after threshold"""
         # The decorator is set to 10/m, so 11 requests should trigger it
         for i in range(10):
-            response = self.client.post('/destination_search/chat/', {
+            response = self.client.post('/destination_search/chat', {
                 'trip_id': self.trip.id,
                 'message': f'Test message {i}'
             })
             self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # 11th request should be rate limited
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': self.trip.id,
             'message': 'This should be blocked'
         })
@@ -788,7 +789,7 @@ def test_chat_sanitizes_html_input(self):
         }
         mock_wf.get_next_question.return_value = 'Question?'
         
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': self.trip.id,
             'message': "<script>alert('xss')</script>Hello"
         })

@@ -318,7 +318,7 @@ class TripAPITests(APITestCase):
     
     def test_create_trip(self):
         """Test creating a new trip"""
-        url = '/api/trips/'
+        url = '/api/trips'
         data = {
             'title': 'European Adventure',
             'description': 'Backpacking through Europe',
@@ -341,7 +341,7 @@ class TripAPITests(APITestCase):
         other_user = User.objects.create_user('other', 'other@test.com', 'pass')
         Trip.objects.create(user=other_user, title="Other's Trip")
         
-        response = self.client.get('/api/trips/')
+        response = self.client.get('/api/trips')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
@@ -359,7 +359,7 @@ class TripAPITests(APITestCase):
             budget=Decimal('3000.00')
         )
         
-        response = self.client.get(f'/api/trips/{trip.id}/')
+        response = self.client.get(f'/api/trips/{trip.id}')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['title'], 'Detail Test')
@@ -371,7 +371,7 @@ class TripAPITests(APITestCase):
         trip = Trip.objects.create(user=self.user, title="Original")
         
         data = {'title': 'Updated Title'}
-        response = self.client.patch(f'/api/trips/{trip.id}/', data, format='json')
+        response = self.client.patch(f'/api/trips/{trip.id}', data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         trip.refresh_from_db()
@@ -381,7 +381,7 @@ class TripAPITests(APITestCase):
         """Test deleting a trip"""
         trip = Trip.objects.create(user=self.user, title="To Delete")
         
-        response = self.client.delete(f'/api/trips/{trip.id}/')
+        response = self.client.delete(f'/api/trips/{trip.id}')
         
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Trip.objects.filter(id=trip.id).exists())
@@ -391,14 +391,14 @@ class TripAPITests(APITestCase):
         other_user = User.objects.create_user('other', 'other@test.com', 'pass')
         other_trip = Trip.objects.create(user=other_user, title="Other's Trip")
         
-        response = self.client.get(f'/api/trips/{other_trip.id}/')
+        response = self.client.get(f'/api/trips/{other_trip.id}')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
     
     def test_trip_requires_authentication(self):
         """Test that trip endpoints require authentication"""
         self.client.force_authenticate(user=None)
         
-        response = self.client.get('/api/trips/')
+        response = self.client.get('/api/trips')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
@@ -414,7 +414,7 @@ class PlanningSessionAPITests(APITestCase):
     
     def test_create_planning_session(self):
         """Test creating a planning session"""
-        url = '/api/planning-sessions/'
+        url = '/api/planning-sessions'
         data = {
             'trip': self.trip.id,
             'current_stage': 'destination'
@@ -431,7 +431,7 @@ class PlanningSessionAPITests(APITestCase):
         """Test listing planning sessions"""
         PlanningSession.objects.create(trip=self.trip)
         
-        response = self.client.get('/api/planning-sessions/')
+        response = self.client.get('/api/planning-sessions')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
@@ -443,7 +443,7 @@ class PlanningSessionAPITests(APITestCase):
             current_stage='destination'
         )
         
-        response = self.client.post(f'/api/planning-sessions/{session.id}/advance_stage/')
+        response = self.client.post(f'/api/planning-sessions/{session.id}/advance_stage')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         session.refresh_from_db()
@@ -457,7 +457,7 @@ class PlanningSessionAPITests(APITestCase):
         other_trip = Trip.objects.create(user=other_user, title="Other's Trip")
         
         data = {'trip': other_trip.id, 'current_stage': 'destination'}
-        response = self.client.post('/api/planning-sessions/', data, format='json')
+        response = self.client.post('/api/planning-sessions', data, format='json')
         
         # This might return 400 instead of 403 depending on your serializer
         # Update based on actual behavior:
@@ -476,7 +476,7 @@ class UserPreferencesAPITests(APITestCase):
     
     def test_get_user_preferences(self):
         """Test getting user preferences"""
-        response = self.client.get('/api/user-preferences/')
+        response = self.client.get('/api/user-preferences')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
@@ -492,7 +492,7 @@ class UserPreferencesAPITests(APITestCase):
         }
         
         response = self.client.patch(
-            f'/api/user-preferences/{self.preferences.id}/',
+            f'/api/user-preferences/{self.preferences.id}',
             data,
             format='json'
         )
@@ -507,7 +507,7 @@ class UserPreferencesAPITests(APITestCase):
         other_user = User.objects.create_user('other', 'other@test.com', 'pass')
         UserPreferences.objects.create(user=other_user, preferences_text="Secret")
         
-        response = self.client.get('/api/user-preferences/')
+        response = self.client.get('/api/user-preferences')
         
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['preferences_text'], 'Beach lover')
@@ -526,7 +526,7 @@ class DestinationAPITests(APITestCase):
     
     def test_list_destinations(self):
         """Test listing all destinations"""
-        response = self.client.get('/api/destinations/')
+        response = self.client.get('/api/destinations')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 3)
@@ -542,7 +542,7 @@ class DestinationAPITests(APITestCase):
     def test_destinations_are_read_only(self):
         """Test that destinations cannot be created via API"""
         data = {'name': 'London', 'country': 'UK'}
-        response = self.client.post('/api/destinations/', data, format='json')
+        response = self.client.post('/api/destinations', data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
     
@@ -550,7 +550,7 @@ class DestinationAPITests(APITestCase):
         """Test that destinations require authentication"""
         self.client.force_authenticate(user=None)
         
-        response = self.client.get('/api/destinations/')
+        response = self.client.get('/api/destinations')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
@@ -614,7 +614,7 @@ class PlanningSessionActionsTests(APITestCase):
         """Test advancing through stages works"""
         session = PlanningSession.objects.create(trip=self.trip, current_stage='destination')
         
-        response = self.client.post(f'/api/planning-sessions/{session.id}/advance_stage/')
+        response = self.client.post(f'/api/planning-sessions/{session.id}/advance_stage')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['current_stage'], 'accommodation')
@@ -625,7 +625,7 @@ class PlanningSessionActionsTests(APITestCase):
         """Test that trip status syncs with planning stage"""
         session = PlanningSession.objects.create(trip=self.trip, current_stage='destination')
         
-        response = self.client.post(f'/api/planning-sessions/{session.id}/advance_stage/')
+        response = self.client.post(f'/api/planning-sessions/{session.id}/advance_stage')
         
         # After advancing from 'destination', we're now at 'accommodation'
         # which maps to 'hotels_selected' status
@@ -637,7 +637,7 @@ class PlanningSessionActionsTests(APITestCase):
         """Test completing the planning session"""
         session = PlanningSession.objects.create(trip=self.trip, current_stage='finalization')
         
-        response = self.client.post(f'/api/planning-sessions/{session.id}/advance_stage/')
+        response = self.client.post(f'/api/planning-sessions/{session.id}/advance_stage')
         
         session.refresh_from_db()
         self.assertEqual(session.current_stage, 'completed')
@@ -652,7 +652,7 @@ class PlanningSessionActionsTests(APITestCase):
             stages_completed=['destination']
         )
         
-        response = self.client.get(f'/api/planning-sessions/{session.id}/status/')
+        response = self.client.get(f'/api/planning-sessions/{session.id}/status')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('progress_percentage', response.data)
@@ -664,7 +664,7 @@ class PlanningSessionActionsTests(APITestCase):
         other_trip = Trip.objects.create(user=other_user, title="Other")
         other_session = PlanningSession.objects.create(trip=other_trip)
         
-        response = self.client.post(f'/api/planning-sessions/{other_session.id}/advance_stage/')
+        response = self.client.post(f'/api/planning-sessions/{other_session.id}/advance_stage')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
@@ -717,14 +717,14 @@ class TripValidationTests(APITestCase):
             'end_date': '2025-03-05'
         }
         
-        response = self.client.post('/api/trips/', data, format='json')
+        response = self.client.post('/api/trips', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
     
     def test_status_field_is_readonly(self):
         """Test that users can't manually change trip status"""
         trip = Trip.objects.create(user=self.user, title="Test", status='planning')
         
-        response = self.client.patch(f'/api/trips/{trip.id}/', 
+        response = self.client.patch(f'/api/trips/{trip.id}', 
                                      {'status': 'booked'}, format='json')
         
         trip.refresh_from_db()
@@ -736,7 +736,7 @@ class TripValidationTests(APITestCase):
         old_id = old_session.id
         
         data = {'trip': self.trip.id}
-        self.client.post('/api/planning-sessions/', data, format='json')
+        self.client.post('/api/planning-sessions', data, format='json')
         
         self.assertFalse(PlanningSession.objects.filter(id=old_id).exists())
 
@@ -754,7 +754,7 @@ class PermissionTests(APITestCase):
         Trip.objects.create(user=self.user, title="Mine")
         Trip.objects.create(user=self.other, title="Theirs")
         
-        response = self.client.get('/api/trips/')
+        response = self.client.get('/api/trips')
         
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['title'], 'Mine')
@@ -763,7 +763,7 @@ class PermissionTests(APITestCase):
         """Test users can't modify others' trips"""
         other_trip = Trip.objects.create(user=self.other, title="Other")
         
-        response = self.client.patch(f'/api/trips/{other_trip.id}/', 
+        response = self.client.patch(f'/api/trips/{other_trip.id}', 
                                      {'title': 'Hacked'}, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
