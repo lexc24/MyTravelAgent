@@ -18,7 +18,7 @@ class HealthCheckTests(TestCase):
     
     def test_health_check_endpoint(self):
         """Test that health check returns OK"""
-        response = self.client.get('/health/')
+        response = self.client.get('/health')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content.decode(), 'OK')
 
@@ -56,7 +56,7 @@ class URLRoutingTests(APITestCase):
     def test_api_root_accessible(self):
         """Test API root is accessible"""
         self.client.force_authenticate(user=self.user)
-        response = self.client.get('/api/')
+        response = self.client.get('/api')
         self.assertEqual(response.status_code, 200)
 
 
