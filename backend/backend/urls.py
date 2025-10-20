@@ -8,11 +8,11 @@ from rest_framework_simplejwt.views import (TokenObtainPairView,
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/user/register", CreateUserView.as_view(), name="register"),
-    path("api/token/", TokenObtainPairView.as_view(), name="get_token"),
-    path("api/token/refresh/", TokenRefreshView.as_view(), name="refresh"),
+    path("api/token", TokenObtainPairView.as_view(), name="get_token"),
+    path("api/token/refresh", TokenRefreshView.as_view(), name="refresh"),
     path("api/", include("api.urls")),  # Include API app URLs
     path("api-auth/", include("rest_framework.urls")),
-    path('health/', lambda request: HttpResponse('OK')),
+    path('health', lambda request: HttpResponse('OK')),
     path('destination_search/', include('destination_search.urls'))
 
 ]
