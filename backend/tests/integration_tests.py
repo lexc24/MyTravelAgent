@@ -24,6 +24,41 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 
+class DebugURLTest(APITestCase):
+    """Debug test to see what's happening with URLs"""
+    
+    def test_debug_url_resolution(self):
+        """Debug URL resolution"""
+        from django.conf import settings
+        from django.urls import reverse
+
+        # Print APPEND_SLASH setting
+        print(f"\n=== DEBUG INFO ===")
+        print(f"APPEND_SLASH: {settings.APPEND_SLASH}")
+        
+        # Test reverse() URLs
+        register_url = reverse('register')
+        token_url = reverse('get_token')
+        print(f"reverse('register'): {register_url}")
+        print(f"reverse('get_token'): {token_url}")
+        
+        # Test actual requests
+        response = self.client.post('/api/user/register', {})
+        print(f"POST /api/user/register -> {response.status_code}")
+        if response.status_code == 301:
+            print(f"  Redirected to: {response.get('Location', 'NO LOCATION HEADER')}")
+        
+        response2 = self.client.post('/api/token', {})
+        print(f"POST /api/token -> {response2.status_code}")
+        if response2.status_code == 301:
+            print(f"  Redirected to: {response2.get('Location', 'NO LOCATION HEADER')}")
+        
+        print(f"=== END DEBUG ===\n")
+        
+        # This test should always pass - it's just for debugging
+        self.assertTrue(True)
+
+
 class CompleteUserJourneyTests(APITestCase):
     """Test complete user workflows from start to finish"""
     
