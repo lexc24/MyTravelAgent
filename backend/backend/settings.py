@@ -227,7 +227,8 @@ else:
     }
 
 # Production Security Settings
-if not DEBUG:
+# Don't apply these settings during testing
+if not DEBUG and 'test' not in sys.argv:
     # HTTPS and security headers for production
     SECURE_SSL_REDIRECT = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
