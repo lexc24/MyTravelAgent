@@ -22,6 +22,8 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
+from django.test import TransactionTestCase
+from django.db import connections
 
 
 class DebugURLTest(APITestCase):
@@ -135,7 +137,7 @@ class CompleteUserJourneyTests(APITestCase):
             }
             mock_wf.get_next_question.return_value = 'What is your preferred climate - tropical or Mediterranean?'
             
-            chat_url = '/destination_search/chat/'
+            chat_url = '/destination_search/chat'
             chat_data = {
                 'trip_id': trip_id,
                 'message': 'I want a beach vacation with some cultural sites to visit'
@@ -195,7 +197,7 @@ class CompleteUserJourneyTests(APITestCase):
         )
         
         # Send commitment message
-        chat_url = '/destination_search/chat/'
+        chat_url = '/destination_search/chat'
         chat_data = {
             'trip_id': trip.id,
             'message': "Bali sounds perfect! Let's go with that option."
@@ -343,7 +345,7 @@ class DestinationSearchIntegrationTests(APITestCase):
         }
         mock_wf.get_next_question.return_value = 'What is your budget for this adventure trip?'
         
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': self.trip.id,
             'message': 'I want an adventure travel experience'
         })
@@ -363,7 +365,7 @@ class DestinationSearchIntegrationTests(APITestCase):
         }
         mock_wf.get_next_question.return_value = 'How many days do you have for this trip?'
         
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': self.trip.id,
             'message': 'My budget is around $3000'
         })
@@ -386,7 +388,7 @@ class DestinationSearchIntegrationTests(APITestCase):
             """
         }
         
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': self.trip.id,
             'message': '10 days with moderate fitness level'
         })
@@ -396,7 +398,7 @@ class DestinationSearchIntegrationTests(APITestCase):
         self.assertIn('destinations', response.data)
         
         # Step 4: Select a destination
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': self.trip.id,
             'message': "Costa Rica sounds amazing! Let's book that!"
         })
@@ -590,21 +592,21 @@ class ErrorHandlingIntegrationTests(APITestCase):
         self.client.force_authenticate(user=user)
         
         # Invalid trip ID
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': 99999,
             'message': 'Hello'
         })
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Missing required fields
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'message': 'Hello'  # Missing trip_id
         })
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         
         # Empty message
         trip = Trip.objects.create(user=user, title='Test')
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': trip.id,
             'message': '   '  # Whitespace only
         })
@@ -620,7 +622,7 @@ class ErrorHandlingIntegrationTests(APITestCase):
         # Simulate AI service failure
         mock_wf.process_initial_message.side_effect = Exception("AI service unavailable")
         
-        response = self.client.post('/destination_search/chat/', {
+        response = self.client.post('/destination_search/chat', {
             'trip_id': trip.id,
             'message': 'I want a vacation'
         })
@@ -687,3 +689,12 @@ class DataIntegrityTests(TransactionTestCase):
         # Should not create duplicate
         prefs, created = UserPreferences.objects.get_or_create(user=user)
         self.assertFalse(created)
+
+class CompleteUserJourneyTests(APITestCase):
+    
+    @classmethod
+    def tearDownClass(cls):
+        """Ensure all database connections are closed"""
+        super().tearDownClass()
+        for connection in connections.all():
+            connection.close()

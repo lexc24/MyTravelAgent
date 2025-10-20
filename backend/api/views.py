@@ -7,6 +7,7 @@ from rest_framework import filters, generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 
 from .models import Destination, PlanningSession, Trip, UserPreferences
 from .serializers import (DestinationSerializer,
@@ -44,10 +45,15 @@ class UserPreferencesViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return UserPreferences.objects.filter(user=self.request.user)
 
+class TripPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 class TripViewSet(viewsets.ModelViewSet):
     """Trip management with CRUD operations"""
     permission_classes = [IsAuthenticated]
+    pagination_class = TripPagination  # Add this line
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['status', 'destination']
     ordering_fields = ['created_at', 'start_date', 'title']

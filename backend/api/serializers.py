@@ -180,7 +180,8 @@ class PlanningSessionCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating planning sessions"""
     class Meta:
         model = PlanningSession
-        fields = ['trip', 'current_stage', 'session_data']
+        fields = ['id', 'trip', 'current_stage']  # Make sure 'id' is here
+        read_only_fields = ['id']
         extra_kwargs = {
             'current_stage': {'required': False},  # Will default to 'destination'
             'session_data': {'required': False}
