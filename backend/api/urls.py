@@ -7,7 +7,7 @@ from .views import (DestinationViewSet, PlanningSessionViewSet, TripViewSet,
                     UserPreferencesViewSet)
 
 # Create router and register ViewSets
-router = DefaultRouter()
+router = DefaultRouter(trailing_slash=False)
 router.register(r'user-preferences', UserPreferencesViewSet, basename='userpreferences')
 router.register(r'trips', TripViewSet, basename='trips')
 router.register(r'planning-sessions', PlanningSessionViewSet, basename='planningsessions')
