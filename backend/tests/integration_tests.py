@@ -257,40 +257,47 @@ class APIIntegrationTests(APITestCase):
         verify_response = self.client.get(f'/api/trips/{trip_id}')
         self.assertEqual(verify_response.status_code, status.HTTP_404_NOT_FOUND)
     
-    def test_planning_session_workflow(self):
-        """Test planning session progression through stages"""
-        # Create trip
-        trip = Trip.objects.create(
-            user=self.user,
-            title='Planning Workflow Test',
-            status='planning'
-        )
+def test_planning_session_workflow(self):
+    """Test planning session progression through stages"""
+    # Create trip
+    trip = Trip.objects.create(
+        user=self.user,
+        title='Planning Workflow Test',
+        status='planning'
+    )
+    
+    # Create planning session starting at 'destination'
+    session_response = self.client.post('/api/planning-sessions', {
+        'trip': trip.id,
+        'current_stage': 'destination'
+    })
+    self.assertEqual(session_response.status_code, status.HTTP_201_CREATED)
+    session_id = session_response.data['id']
+    
+    # Define expected progression
+    expected_progression = [
+        ('destination', 'accommodation'),  # Advance 1
+        ('accommodation', 'flights'),       # Advance 2
+        ('flights', 'activities'),          # Advance 3
+        ('activities', 'itinerary'),        # Advance 4
+        ('itinerary', 'finalization'),      # Advance 5
+        ('finalization', 'completed'),      # Advance 6 - FINAL
+    ]
+    
+    # Advance through each stage
+    for current_stage, next_stage in expected_progression:
+        advance_response = self.client.post(f'/api/planning-sessions/{session_id}/advance_stage')
+        self.assertEqual(advance_response.status_code, status.HTTP_200_OK)
         
-        # Create planning session
-        session_response = self.client.post('/api/planning-sessions', {
-            'trip': trip.id,
-            'current_stage': 'destination'
-        })
-        self.assertEqual(session_response.status_code, status.HTTP_201_CREATED)
-        session_id = session_response.data['id']
-        
-        # Advance through stages
-        stages = ['destination', 'accommodation', 'flights', 'activities', 'itinerary', 'finalization']
-        
-        for i, expected_stage in enumerate(stages[1:], 1):
-            advance_response = self.client.post(f'/api/planning-sessions/{session_id}/advance_stage')
-            self.assertEqual(advance_response.status_code, status.HTTP_200_OK)
-            
-            # Get session details
-            detail_response = self.client.get(f'/api/planning-sessions/{session_id}')
-            self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
-            
-            if i < len(stages) - 1:
-                self.assertEqual(detail_response.data['current_stage'], expected_stage)
-            else:
-                # Last advance should complete the session
-                self.assertEqual(detail_response.data['current_stage'], 'completed')
-                self.assertTrue(detail_response.data['is_completed'])
+        # Verify we moved to the next stage
+        detail_response = self.client.get(f'/api/planning-sessions/{session_id}')
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.data['current_stage'], next_stage)
+    
+    # After all advances, verify session is completed
+    final_response = self.client.get(f'/api/planning-sessions/{session_id}')
+    self.assertEqual(final_response.data['current_stage'], 'completed')
+    self.assertTrue(final_response.data['is_completed'])
     
     def test_cross_user_isolation(self):
         """Test that users cannot access each other's data"""
