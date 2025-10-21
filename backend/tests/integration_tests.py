@@ -60,6 +60,16 @@ class DebugURLTest(APITestCase):
         # This test should always pass - it's just for debugging
         self.assertTrue(True)
 
+class BaseIntegrationTest(APITestCase):
+    """Base class for integration tests with proper cleanup"""
+    
+    @classmethod
+    def tearDownClass(cls):
+        """Ensure all database connections are closed"""
+        # Close all connections before teardown
+        for conn in connections.all():
+            conn.close()
+        super().tearDownClass()
 
 class CompleteUserJourneyTests(APITestCase):
     """Test complete user workflows from start to finish"""
@@ -215,7 +225,7 @@ class CompleteUserJourneyTests(APITestCase):
         self.assertEqual(trip.destination.country, 'Indonesia')
 
 
-class APIIntegrationTests(APITestCase):
+class APIIntegrationTests(BaseIntegrationTest):
     """Test API endpoints work together correctly"""
     
     def setUp(self):
@@ -329,7 +339,7 @@ def test_planning_session_workflow(self):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
-class DestinationSearchIntegrationTests(APITestCase):
+class DestinationSearchIntegrationTests(BaseIntegrationTest):
     """Test destination search feature integration"""
     
     def setUp(self):
