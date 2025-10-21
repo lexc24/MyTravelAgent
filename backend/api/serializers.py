@@ -156,7 +156,6 @@ class PlanningSessionDetailSerializer(serializers.ModelSerializer):
     trip = TripListSerializer(read_only=True)
     progress_percentage = serializers.ReadOnlyField()
     is_completed = serializers.ReadOnlyField()
-    duration_minutes = serializers.SerializerMethodField()
     next_stage = serializers.SerializerMethodField()
     
     class Meta:
@@ -165,11 +164,10 @@ class PlanningSessionDetailSerializer(serializers.ModelSerializer):
             'id', 'trip', 'current_stage', 'is_active', 
             'session_data', 'stages_completed',
             'started_at', 'last_interaction_at', 'completed_at',
-            'progress_percentage', 'is_completed', 'duration_minutes',
+            'progress_percentage', 'is_completed',
             'next_stage'
         ]
         read_only_fields = ['id', 'started_at', 'last_interaction_at', 'completed_at']
-    
     
     def get_next_stage(self, obj):
         """Get the next stage in the workflow"""
