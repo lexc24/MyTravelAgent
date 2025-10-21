@@ -25,8 +25,18 @@ from rest_framework.test import APITestCase
 from django.test import TransactionTestCase
 from django.db import connections
 
+class BaseIntegrationTest(APITestCase):
+    """Base class for integration tests with proper cleanup"""
+    
+    @classmethod
+    def tearDownClass(cls):
+        """Ensure all database connections are closed"""
+        # Close all connections before teardown
+        for conn in connections.all():
+            conn.close()
+        super().tearDownClass()
 
-class DebugURLTest(APITestCase):
+class DebugURLTest(BaseIntegrationTest):
     """Debug test to see what's happening with URLs"""
     
     def test_debug_url_resolution(self):
@@ -60,18 +70,8 @@ class DebugURLTest(APITestCase):
         # This test should always pass - it's just for debugging
         self.assertTrue(True)
 
-class BaseIntegrationTest(APITestCase):
-    """Base class for integration tests with proper cleanup"""
-    
-    @classmethod
-    def tearDownClass(cls):
-        """Ensure all database connections are closed"""
-        # Close all connections before teardown
-        for conn in connections.all():
-            conn.close()
-        super().tearDownClass()
 
-class CompleteUserJourneyTests(APITestCase):
+class CompleteUserJourneyTests(BaseIntegrationTest):
     """Test complete user workflows from start to finish"""
     
     def test_full_user_registration_to_trip_planning(self):
@@ -574,7 +574,7 @@ class ExternalServiceIntegrationTests(TransactionTestCase):
         self.assertEqual(successful, 5, "All concurrent users should successfully create trips")
 
 
-class ErrorHandlingIntegrationTests(APITestCase):
+class ErrorHandlingIntegrationTests(BaseIntegrationTest):
     """Test error handling across the system"""
     
     def test_api_error_responses(self):
@@ -706,11 +706,3 @@ class DataIntegrityTests(TransactionTestCase):
         prefs, created = UserPreferences.objects.get_or_create(user=user)
         self.assertFalse(created)
 
-class CompleteUserJourneyTests(APITestCase):
-    
-    @classmethod
-    def tearDownClass(cls):
-        """Ensure all database connections are closed"""
-        super().tearDownClass()
-        for connection in connections.all():
-            connection.close()
