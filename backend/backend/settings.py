@@ -135,7 +135,6 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-TEST_RUNNER = 'backend.test_runner.ForceCloseConnectionTestRunner'
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'

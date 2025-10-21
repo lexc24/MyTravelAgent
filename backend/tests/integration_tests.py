@@ -25,18 +25,8 @@ from rest_framework.test import APITestCase
 from django.test import TransactionTestCase
 from django.db import connections
 
-class BaseIntegrationTest(APITestCase):
-    """Base class for integration tests with proper cleanup"""
-    
-    @classmethod
-    def tearDownClass(cls):
-        """Ensure all database connections are closed"""
-        # Close all connections before teardown
-        for conn in connections.all():
-            conn.close()
-        super().tearDownClass()
 
-class DebugURLTest(BaseIntegrationTest):
+class DebugURLTest(APITestCase):
     """Debug test to see what's happening with URLs"""
     
     def test_debug_url_resolution(self):
@@ -71,7 +61,7 @@ class DebugURLTest(BaseIntegrationTest):
         self.assertTrue(True)
 
 
-class CompleteUserJourneyTests(BaseIntegrationTest):
+class CompleteUserJourneyTests(APITestCase):
     """Test complete user workflows from start to finish"""
     
     def test_full_user_registration_to_trip_planning(self):
@@ -225,7 +215,7 @@ class CompleteUserJourneyTests(BaseIntegrationTest):
         self.assertEqual(trip.destination.country, 'Indonesia')
 
 
-class APIIntegrationTests(BaseIntegrationTest):
+class APIIntegrationTests(APITestCase):
     """Test API endpoints work together correctly"""
     
     def setUp(self):
@@ -339,7 +329,7 @@ def test_planning_session_workflow(self):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
-class DestinationSearchIntegrationTests(BaseIntegrationTest):
+class DestinationSearchIntegrationTests(APITestCase):
     """Test destination search feature integration"""
     
     def setUp(self):
@@ -574,7 +564,7 @@ class ExternalServiceIntegrationTests(TransactionTestCase):
         self.assertEqual(successful, 5, "All concurrent users should successfully create trips")
 
 
-class ErrorHandlingIntegrationTests(BaseIntegrationTest):
+class ErrorHandlingIntegrationTests(APITestCase):
     """Test error handling across the system"""
     
     def test_api_error_responses(self):
