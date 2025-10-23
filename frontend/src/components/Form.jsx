@@ -100,150 +100,152 @@ function FormComponent({ route, method }) {
         )}
       />
 
-      <Content>
-        <Grid
-          condensed
-          fullWidth
-          style={{
-            justifyContent: "center",
-            alignItems: "center",
-            minHeight: "100vh",
-          }}
-        >
-          <Column lg={6} md={6} sm={4}>
-            <div
-              style={{
-                marginTop: "2rem",
-                marginBottom: "2rem",
-                textAlign: "center",
-              }}
-            >
+      <Content
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+          padding: 0,
+        }}
+      >
+        <div style={{ width: "100%", maxWidth: 720, padding: "0 1rem" }}>
+          <Grid condensed fullWidth>
+            <Column lg={16} md={8} sm={4}>
               <div
                 style={{
-                  width: "80px",
-                  height: "80px",
-                  background: "var(--cds-interactive)",
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 2rem auto",
+                  marginTop: "2rem",
+                  marginBottom: "2rem",
+                  textAlign: "center",
                 }}
               >
-                <Icon size={32} style={{ color: "white" }} />
+                <div
+                  style={{
+                    width: "80px",
+                    height: "80px",
+                    background: "var(--cds-interactive)",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "0 auto 2rem auto",
+                  }}
+                >
+                  <Icon size={32} style={{ color: "white" }} />
+                </div>
+
+                <h1
+                  style={{
+                    fontSize: "2.5rem",
+                    fontWeight: "300",
+                    marginBottom: "0.5rem",
+                    color: "var(--cds-text-primary)",
+                  }}
+                >
+                  {title}
+                </h1>
+                <p
+                  style={{
+                    color: "var(--cds-text-secondary)",
+                    fontSize: "1.125rem",
+                    marginBottom: "2rem",
+                  }}
+                >
+                  {isLogin
+                    ? "Welcome back to your travel planning dashboard"
+                    : "Join us and start planning your next adventure"}
+                </p>
               </div>
 
-              <h1
-                style={{
-                  fontSize: "2.5rem",
-                  fontWeight: "300",
-                  marginBottom: "0.5rem",
-                  color: "var(--cds-text-primary)",
-                }}
-              >
-                {title}
-              </h1>
-              <p
-                style={{
-                  color: "var(--cds-text-secondary)",
-                  fontSize: "1.125rem",
-                  marginBottom: "2rem",
-                }}
-              >
-                {isLogin
-                  ? "Welcome back to your travel planning dashboard"
-                  : "Join us and start planning your next adventure"}
-              </p>
-            </div>
+              {notification && (
+                <InlineNotification
+                  kind={notification.kind}
+                  title={notification.title}
+                  subtitle={notification.subtitle}
+                  style={{ marginBottom: "2rem" }}
+                  onCloseButtonClick={() => setNotification(null)}
+                />
+              )}
 
-            {notification && (
-              <InlineNotification
-                kind={notification.kind}
-                title={notification.title}
-                subtitle={notification.subtitle}
-                style={{ marginBottom: "2rem" }}
-                onCloseButtonClick={() => setNotification(null)}
-              />
-            )}
+              <Tile style={{ padding: "2.5rem" }}>
+                <Form onSubmit={handleSubmit}>
+                  <FormGroup legendText="">
+                    <TextInput
+                      id="username"
+                      labelText="Username"
+                      placeholder="Enter your username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      required
+                      style={{ marginBottom: "1.5rem" }}
+                    />
 
-            <Tile style={{ padding: "2.5rem" }}>
-              <Form onSubmit={handleSubmit}>
-                <FormGroup legendText="">
-                  <TextInput
-                    id="username"
-                    labelText="Username"
-                    placeholder="Enter your username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                    style={{ marginBottom: "1.5rem" }}
-                  />
+                    <TextInput
+                      id="password"
+                      type="password"
+                      labelText="Password"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      style={{ marginBottom: "2rem" }}
+                    />
 
-                  <TextInput
-                    id="password"
-                    type="password"
-                    labelText="Password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    style={{ marginBottom: "2rem" }}
-                  />
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      renderIcon={loading ? null : Icon}
+                      style={{ width: "100%", marginBottom: "1.5rem" }}
+                    >
+                      {loading ? (
+                        <>
+                          <Loading small style={{ marginRight: "0.5rem" }} />
+                          {isLogin ? "Signing In..." : "Creating Account..."}
+                        </>
+                      ) : (
+                        buttonText
+                      )}
+                    </Button>
 
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    renderIcon={loading ? null : Icon}
-                    style={{ width: "100%", marginBottom: "1.5rem" }}
-                  >
-                    {loading ? (
-                      <>
-                        <Loading small style={{ marginRight: "0.5rem" }} />
-                        {isLogin ? "Signing In..." : "Creating Account..."}
-                      </>
-                    ) : (
-                      buttonText
-                    )}
-                  </Button>
-
-                  <div
-                    style={{
-                      textAlign: "center",
-                      paddingTop: "1rem",
-                      borderTop: "1px solid var(--cds-border-subtle)",
-                    }}
-                  >
-                    {isLogin ? (
-                      <p style={{ color: "var(--cds-text-secondary)" }}>
-                        Don't have an account?{" "}
-                        <Button
-                          kind="ghost"
-                          size="sm"
-                          onClick={() => navigate("/register")}
-                          style={{ padding: "0", minHeight: "auto" }}
-                        >
-                          Create one here
-                        </Button>
-                      </p>
-                    ) : (
-                      <p style={{ color: "var(--cds-text-secondary)" }}>
-                        Already have an account?{" "}
-                        <Button
-                          kind="ghost"
-                          size="sm"
-                          onClick={() => navigate("/login")}
-                          style={{ padding: "0", minHeight: "auto" }}
-                        >
-                          Sign in here
-                        </Button>
-                      </p>
-                    )}
-                  </div>
-                </FormGroup>
-              </Form>
-            </Tile>
-          </Column>
-        </Grid>
+                    <div
+                      style={{
+                        textAlign: "center",
+                        paddingTop: "1rem",
+                        borderTop: "1px solid var(--cds-border-subtle)",
+                      }}
+                    >
+                      {isLogin ? (
+                        <p style={{ color: "var(--cds-text-secondary)" }}>
+                          Don't have an account?{" "}
+                          <Button
+                            kind="ghost"
+                            size="sm"
+                            onClick={() => navigate("/register")}
+                            style={{ padding: "0", minHeight: "auto" }}
+                          >
+                            Create one here
+                          </Button>
+                        </p>
+                      ) : (
+                        <p style={{ color: "var(--cds-text-secondary)" }}>
+                          Already have an account?{" "}
+                          <Button
+                            kind="ghost"
+                            size="sm"
+                            onClick={() => navigate("/login")}
+                            style={{ padding: "0", minHeight: "auto" }}
+                          >
+                            Sign in here
+                          </Button>
+                        </p>
+                      )}
+                    </div>
+                  </FormGroup>
+                </Form>
+              </Tile>
+            </Column>
+          </Grid>
+        </div>
       </Content>
     </div>
   );
