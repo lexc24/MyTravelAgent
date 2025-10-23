@@ -6,35 +6,43 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0001_initial'),
+        ("api", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='activity',
-            options={'verbose_name_plural': 'Activities'},
+            name="activity",
+            options={"verbose_name_plural": "Activities"},
         ),
         migrations.AddField(
-            model_name='flight',
-            name='aircraft_type',
+            model_name="flight",
+            name="aircraft_type",
             field=models.CharField(blank=True, max_length=100, null=True),
         ),
         migrations.AddField(
-            model_name='flight',
-            name='available_seats',
+            model_name="flight",
+            name="available_seats",
             field=models.PositiveIntegerField(default=100),
         ),
         migrations.AddField(
-            model_name='flight',
-            name='flight_number',
+            model_name="flight",
+            name="flight_number",
             field=models.CharField(default=10, max_length=20),
         ),
         migrations.AddField(
-            model_name='flight',
-            name='flight_type',
-            field=models.CharField(choices=[('outbound', 'Outbound'), ('return', 'Return'), ('domestic', 'Domestic/Internal')], default='outbound', max_length=10),
+            model_name="flight",
+            name="flight_type",
+            field=models.CharField(
+                choices=[
+                    ("outbound", "Outbound"),
+                    ("return", "Return"),
+                    ("domestic", "Domestic/Internal"),
+                ],
+                default="outbound",
+                max_length=10,
+            ),
         ),
         migrations.DeleteModel(
-            name='Conversation',
+            name="Conversation",
         ),
     ]

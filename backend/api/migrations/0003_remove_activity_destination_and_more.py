@@ -6,38 +6,54 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0002_alter_activity_options_flight_aircraft_type_and_more'),
+        ("api", "0002_alter_activity_options_flight_aircraft_type_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='activity',
-            name='destination',
+            model_name="activity",
+            name="destination",
         ),
         migrations.RemoveField(
-            model_name='flight',
-            name='destination',
+            model_name="flight",
+            name="destination",
         ),
         migrations.RemoveField(
-            model_name='hotel',
-            name='destination',
+            model_name="hotel",
+            name="destination",
         ),
         migrations.AlterField(
-            model_name='planningsession',
-            name='current_stage',
-            field=models.CharField(choices=[('destination', 'Destination Selection'), ('accommodation', 'Hotel/Accommodation Planning'), ('flights', 'Flight Planning'), ('activities', 'Activity Planning'), ('itinerary', 'Itinerary Building'), ('finalization', 'Final Review'), ('completed', 'Planning Completed')], default='destination', max_length=20),
+            model_name="planningsession",
+            name="current_stage",
+            field=models.CharField(
+                choices=[
+                    ("destination", "Destination Selection"),
+                    ("accommodation", "Hotel/Accommodation Planning"),
+                    ("flights", "Flight Planning"),
+                    ("activities", "Activity Planning"),
+                    ("itinerary", "Itinerary Building"),
+                    ("finalization", "Final Review"),
+                    ("completed", "Planning Completed"),
+                ],
+                default="destination",
+                max_length=20,
+            ),
         ),
         migrations.AddConstraint(
-            model_name='planningsession',
-            constraint=models.UniqueConstraint(condition=models.Q(('current_stage', 'completed'), _negated=True), fields=('trip',), name='unique_active_session_per_trip'),
+            model_name="planningsession",
+            constraint=models.UniqueConstraint(
+                condition=models.Q(("current_stage", "completed"), _negated=True),
+                fields=("trip",),
+                name="unique_active_session_per_trip",
+            ),
         ),
         migrations.DeleteModel(
-            name='Activity',
+            name="Activity",
         ),
         migrations.DeleteModel(
-            name='Flight',
+            name="Flight",
         ),
         migrations.DeleteModel(
-            name='Hotel',
+            name="Hotel",
         ),
     ]

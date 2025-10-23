@@ -1,0 +1,39 @@
+repos:
+  # --- General housekeeping ---
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: detect-private-key
+
+  # --- Python formatters ---
+  - repo: https://github.com/psf/black
+    rev: 22.12.0 # last Black for Python 3.9
+    hooks:
+      - id: black
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0 # last isort for Python 3.9
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
+
+  # --- Prettier (JS/TS/HTML/CSS/JSON) ---
+  # NOTE: this tag exists and runs fine under Python 3.9
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v2.7.1
+    hooks:
+      - id: prettier
+
+  # --- Dockerfile linting (optional but 3.9-safe) ---
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.10.0
+    hooks:
+      - id: hadolint
+        name: Lint Dockerfiles
+        files: ^(Dockerfile|.*\.Dockerfile)$

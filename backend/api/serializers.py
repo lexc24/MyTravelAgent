@@ -6,11 +6,20 @@ from .models import Destination, PlanningSession, Trip, UserPreferences
 
 class UserSerializer(serializers.ModelSerializer):
     """Enhanced user serializer with preferences"""
+
     preferences = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "password", "preferences"]
+        fields = [
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "password",
+            "preferences",
+        ]
         extra_kwargs = {"password": {"write_only": True}}
 
     def get_preferences(self, obj):
@@ -30,16 +39,25 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserPreferencesSerializer(serializers.ModelSerializer):
     """User preferences serializer"""
+
     class Meta:
         model = UserPreferences
-        fields = ['id', 'preferences_text', 'budget_min', 'budget_max', 'preferred_group_size', 'updated_at']
+        fields = [
+            "id",
+            "preferences_text",
+            "budget_min",
+            "budget_max",
+            "preferred_group_size",
+            "updated_at",
+        ]
 
 
 class DestinationSerializer(serializers.ModelSerializer):
     """Destination serializer"""
+
     class Meta:
         model = Destination
-        fields = '__all__'
+        fields = "__all__"
 
 
 # class HotelSerializer(serializers.ModelSerializer):
@@ -72,20 +90,30 @@ class DestinationSerializer(serializers.ModelSerializer):
 
 class TripListSerializer(serializers.ModelSerializer):
     """Simplified serializer for trip list view"""
+
     destination = DestinationSerializer(read_only=True)
     duration_days = serializers.ReadOnlyField()
 
     class Meta:
         model = Trip
         fields = [
-            'id', 'title', 'destination', 'start_date', 'end_date', 
-            'budget', 'status', 'travelers_count', 'duration_days',
-            'created_at', 'updated_at'
+            "id",
+            "title",
+            "destination",
+            "start_date",
+            "end_date",
+            "budget",
+            "status",
+            "travelers_count",
+            "duration_days",
+            "created_at",
+            "updated_at",
         ]
 
 
 class TripDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for trip detail view"""
+
     destination = DestinationSerializer(read_only=True)
     # selected_hotel = HotelSerializer(read_only=True)
     # selected_outbound_flight = FlightSerializer(read_only=True)
@@ -96,48 +124,52 @@ class TripDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Trip
-        fields = '__all__'
+        fields = "__all__"
 
 
 class TripCreateUpdateSerializer(serializers.ModelSerializer):
     """Serializer for creating/updating trips"""
+
     class Meta:
         model = Trip
         fields = [
-            'id',  # Include ID for the response
-            'title', 
-            'description', 
-            'destination', 
-            'start_date', 
-            'end_date',
-            'budget', 
-            'travelers_count',
-            'status'
+            "id",  # Include ID for the response
+            "title",
+            "description",
+            "destination",
+            "start_date",
+            "end_date",
+            "budget",
+            "travelers_count",
+            "status",
         ]
-        read_only_fields = ['id', 'status']  # ID and status are read-only
+        read_only_fields = ["id", "status"]  # ID and status are read-only
         extra_kwargs = {
-            'description': {'required': False},
-            'destination': {'required': False},
-            'start_date': {'required': False},
-            'end_date': {'required': False},
-            'budget': {'required': False},
-            'travelers_count': {'required': False},
+            "description": {"required": False},
+            "destination": {"required": False},
+            "start_date": {"required": False},
+            "end_date": {"required": False},
+            "budget": {"required": False},
+            "travelers_count": {"required": False},
         }
 
     def validate(self, data):
         """Validate trip dates"""
-        start_date = data.get('start_date')
-        end_date = data.get('end_date')
-        
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+
         if start_date and end_date and start_date >= end_date:
             raise serializers.ValidationError("End date must be after start date")
-            
+
         return data
+
 
 # Add these to api/serializers.py
 
+
 class PlanningSessionListSerializer(serializers.ModelSerializer):
     """Planning session list serializer"""
+
     trip = TripListSerializer(read_only=True)
     progress_percentage = serializers.ReadOnlyField()
     is_completed = serializers.ReadOnlyField()
@@ -145,30 +177,45 @@ class PlanningSessionListSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlanningSession
         fields = [
-            'id', 'trip', 'current_stage', 'is_active', 'stages_completed',
-            'started_at', 'last_interaction_at', 'completed_at',
-            'progress_percentage', 'is_completed'
+            "id",
+            "trip",
+            "current_stage",
+            "is_active",
+            "stages_completed",
+            "started_at",
+            "last_interaction_at",
+            "completed_at",
+            "progress_percentage",
+            "is_completed",
         ]
 
 
 class PlanningSessionDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for planning session"""
+
     trip = TripListSerializer(read_only=True)
     progress_percentage = serializers.ReadOnlyField()
     is_completed = serializers.ReadOnlyField()
     next_stage = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = PlanningSession
         fields = [
-            'id', 'trip', 'current_stage', 'is_active', 
-            'session_data', 'stages_completed',
-            'started_at', 'last_interaction_at', 'completed_at',
-            'progress_percentage', 'is_completed',
-            'next_stage'
+            "id",
+            "trip",
+            "current_stage",
+            "is_active",
+            "session_data",
+            "stages_completed",
+            "started_at",
+            "last_interaction_at",
+            "completed_at",
+            "progress_percentage",
+            "is_completed",
+            "next_stage",
         ]
-        read_only_fields = ['id', 'started_at', 'last_interaction_at', 'completed_at']
-    
+        read_only_fields = ["id", "started_at", "last_interaction_at", "completed_at"]
+
     def get_next_stage(self, obj):
         """Get the next stage in the workflow"""
         return obj.get_next_stage() if not obj.is_completed else None
@@ -176,26 +223,25 @@ class PlanningSessionDetailSerializer(serializers.ModelSerializer):
 
 class PlanningSessionCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating planning sessions"""
+
     class Meta:
         model = PlanningSession
-        fields = ['id', 'trip', 'current_stage']  # Make sure 'id' is here
-        read_only_fields = ['id']
+        fields = ["id", "trip", "current_stage"]  # Make sure 'id' is here
+        read_only_fields = ["id"]
         extra_kwargs = {
-            'current_stage': {'required': False},  # Will default to 'destination'
-            'session_data': {'required': False}
+            "current_stage": {"required": False},  # Will default to 'destination'
+            "session_data": {"required": False},
         }
-    
 
 
 class PlanningSessionUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating planning session"""
+
     class Meta:
         model = PlanningSession
-        fields = ['current_stage', 'session_data', 'stages_completed']
-        extra_kwargs = {
-            'stages_completed': {'required': False}
-        }
-    
+        fields = ["current_stage", "session_data", "stages_completed"]
+        extra_kwargs = {"stages_completed": {"required": False}}
+
     def validate_current_stage(self, value):
         """Ensure valid stage value"""
         valid_stages = [stage[0] for stage in PlanningSession.PLANNING_STAGES]
@@ -204,6 +250,3 @@ class PlanningSessionUpdateSerializer(serializers.ModelSerializer):
                 f"Invalid stage. Must be one of: {', '.join(valid_stages)}"
             )
         return value
-
-
-

@@ -1,20 +1,25 @@
-
 # api/urls.py (new file for API app URLs)
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import (DestinationViewSet, PlanningSessionViewSet, TripViewSet,
-                    UserPreferencesViewSet)
+from .views import (
+    DestinationViewSet,
+    PlanningSessionViewSet,
+    TripViewSet,
+    UserPreferencesViewSet,
+)
 
 # Create router and register ViewSets
 router = DefaultRouter(trailing_slash=False)
-router.register(r'user-preferences', UserPreferencesViewSet, basename='userpreferences')
-router.register(r'trips', TripViewSet, basename='trips')
-router.register(r'planning-sessions', PlanningSessionViewSet, basename='planningsessions')
-router.register(r'destinations', DestinationViewSet, basename='destinations')
+router.register(r"user-preferences", UserPreferencesViewSet, basename="userpreferences")
+router.register(r"trips", TripViewSet, basename="trips")
+router.register(
+    r"planning-sessions", PlanningSessionViewSet, basename="planningsessions"
+)
+router.register(r"destinations", DestinationViewSet, basename="destinations")
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]
 
 # ========================================

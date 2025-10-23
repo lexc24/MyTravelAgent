@@ -1,4 +1,4 @@
-# Backend .dockerignore  
+# Backend .dockerignore
 __pycache__
 *.pyc
 *.pyo
