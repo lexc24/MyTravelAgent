@@ -206,22 +206,13 @@ CORS_ALLOW_METHODS = [
     "PUT",
 ]
 
-# Cache configuration with Redis fallback
-if os.environ.get("REDIS_URL"):
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": os.environ.get("REDIS_URL"),
-        }
+# Simple local-memory cache (no Redis, no DB table)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "mytravelagent-cache",
     }
-else:
-    # Database cache fallback
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.db.DatabaseCache",
-            "LOCATION": "django_cache_table",
-        }
-    }
+}
 
 # Production Security Settings
 # Don't apply these settings during testing
