@@ -65,35 +65,27 @@ const Home = () => {
               possibleUsername.slice(1);
             setUsername(capitalizedUsername);
           } else {
-            console.log("Username not found in token");
-            // If we can't get it from token, try fetching from an API endpoint
-            // You might need to create this endpoint
-            try {
-              const response = await api.get("/api/user/me/");
-              if (response.data.username) {
-                const capitalizedUsername =
-                  response.data.username.charAt(0).toUpperCase() +
-                  response.data.username.slice(1);
-                setUsername(capitalizedUsername);
-              }
-            } catch (apiError) {
-              console.log("No user endpoint available");
-            }
+            console.log("Username not found in token, using default");
+            setUsername("User");
           }
         } catch (e) {
           console.error("Error decoding token:", e);
+          setUsername("User");
         }
       }
     } catch (err) {
       console.error("Error fetching user info:", err);
+      setUsername("User");
     }
   };
 
   const fetchTrips = async () => {
     try {
       setIsLoading(true);
-      const response = await api.get("/api/trips/");
-      setTrips(response.data);
+      const response = await api.get("/api/trips");
+      // Handle paginated response - extract results array
+      const tripsData = response.data.results || response.data;
+      setTrips(Array.isArray(tripsData) ? tripsData : []);
     } catch (err) {
       console.error("Error fetching trips:", err);
       setError("Failed to load trips");
@@ -107,7 +99,7 @@ const Home = () => {
       setIsCreating(true);
       setError(null);
 
-      const response = await api.post("/api/trips/", {
+      const response = await api.post("/api/trips", {
         title: `Trip ${new Date().toLocaleDateString()}`,
         description: "Planning a new adventure",
       });
@@ -158,12 +150,24 @@ const Home = () => {
             size="md"
           >
             <MenuItem
+              data-testid="create-new-trip"
               label="Create New Trip"
               onClick={createNewTrip}
               disabled={isCreating}
             />
             <MenuItem label="Logout" onClick={handleLogout} />
           </ComboButton>
+          {/* E2E-friendly button that bypasses the Carbon ComboButton menu */}
+          <Button
+            kind="primary"
+            size="md"
+            onClick={createNewTrip}
+            disabled={isCreating}
+            data-testid="e2e-create-trip"
+            style={{ marginLeft: "1rem" }} // or whatever looks okay
+          >
+            Create New Trip
+          </Button>
         </div>
 
         {trips.length === 0 ? (
@@ -173,6 +177,7 @@ const Home = () => {
               Start planning your next adventure!
             </p>
             <Button
+              data-testid="create-first-trip"
               renderIcon={Add}
               onClick={createNewTrip}
               disabled={isCreating}

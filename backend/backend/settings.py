@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "destination_search",
+    "drf_spectacular",
 ]
 
 # Middleware configuration - order is important!
@@ -155,8 +156,38 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",  # ADD THIS
 }
-
+# OpenAPI/Swagger Configuration
+SPECTACULAR_SETTINGS = {
+    "TITLE": "MyTravelAgent API",
+    "DESCRIPTION": "AI-powered travel planning platform with destination discovery, trip management, and itinerary building",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    # Authentication
+    "SECURITY": [{"Bearer": []}],
+    "COMPONENT_SPLIT_REQUEST": True,
+    # JWT Configuration
+    "SECURITY_DEFINITIONS": {
+        "Bearer": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        }
+    },
+    # UI Settings
+    "SWAGGER_UI_SETTINGS": {
+        "deepLinking": True,
+        "persistAuthorization": True,
+        "displayOperationId": True,
+    },
+    # Schema settings
+    "SCHEMA_PATH_PREFIX": r"/api/",
+    "SERVERS": [
+        {"url": "http://localhost:8000", "description": "Local Development"},
+        {"url": "https://my-travel-agent.onrender.com", "description": "Production"},
+    ],
+}
 # JWT Configuration
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),

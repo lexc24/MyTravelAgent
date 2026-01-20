@@ -57,7 +57,7 @@ const RecommendationChat = () => {
     try {
       setIsLoadingHistory(true);
       const response = await api.get(
-        `/destination_search/conversations/${tripId}/`
+        `/destination_search/conversations/${tripId}`
       );
 
       if (response.data.messages) {
@@ -106,7 +106,7 @@ const RecommendationChat = () => {
     setMessages((prev) => [...prev, tempUserMessage]);
 
     try {
-      const response = await api.post("/destination_search/chat/", {
+      const response = await api.post("/destination_search/chat", {
         trip_id: parseInt(tripId),
         message: userMessage,
       });
@@ -176,7 +176,7 @@ const RecommendationChat = () => {
       )
     ) {
       try {
-        await api.post(`/destination_search/conversations/${tripId}/reset/`);
+        await api.post(`/destination_search/conversations/${tripId}/reset`);
         setMessages([]);
         setDestinations(null);
         setCurrentStage("initial");

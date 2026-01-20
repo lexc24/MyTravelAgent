@@ -1,19 +1,21 @@
 # destination_search/logic/recommendation_engine.py
 
+from __future__ import annotations
+
+import json
 import os
 import re
-from typing import List
+from typing import Any, Dict, List, Optional, TypedDict
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.graph import END, START, StateGraph
-from pydantic import BaseModel, Field
-from typing_extensions import Literal, TypedDict
+from langgraph.graph import END, StateGraph
+from typing_extensions import Literal
 
-# ————————————————
-# 1) LLM setup
-# ————————————————
+# ------------------------------------------------------------
+# 1) LLM setup: keep Gemini as requested (no try/except)
+# ------------------------------------------------------------
 load_dotenv()
 try:
     llm = ChatGoogleGenerativeAI(
@@ -25,238 +27,387 @@ try:
 except:
     llm = None  # Will be mocked in tests
 
+# ------------------------------------------------------------
+# 2) Tunables (small, predictable)
+# ------------------------------------------------------------
+MAX_Q_ITERS = 1  # one refinement pass for clarifying questions
+MAX_DEST_ITERS = 2  # up to two refinements for destinations (best-of-three)
 
-# ————————————————
-# 2) Feedback schema (kept for future use)
-# ————————————————
-class Feedback(BaseModel):
-    grade: Literal["valid", "not valid"] = Field(
-        description="Are these three destinations specific enough?"
-    )
-    feedback: str = Field(
-        description="If not valid, ask exactly one follow-up question."
-    )
-
-
-try:
-    evaluator = llm.with_structured_output(Feedback)
-except:
-    evaluator = None
-
-
-# ————————————————
-# Helper: turn a numbered/bulleted blob into clean questions
-# ————————————————
-def extract_all_questions(text: str) -> List[str]:
-    questions = []
-    for line in text.splitlines():
-        clean = re.sub(r"^[\s\-\*\d\.\)]+", "", line).strip()
-        if clean.endswith("?"):
-            questions.append(clean)
-    # If nothing ends with '?', we return an empty list (no fallback injected)
-    return questions
-
-
-# ————————————————
+# ------------------------------------------------------------
 # 3) Graph state
-# ————————————————
+# ------------------------------------------------------------
 class State(TypedDict, total=False):
-    info: str  # accumulated user preferences
-    follow_up: str  # last answer (not used in this Django flow)
-    destinations: str  # the "three spots" text
-    valid_or_not: str  # evaluator.grade
-    feedback: str  # evaluator.feedback OR questions list text
-    clarified_once: bool  # not used here, kept for parity
-    question_queue: list[str]
+    # You already use these in your flow:
+    info: str  # accumulated user context
+    feedback: str  # re-used for question text in some flows
+    question_queue: List[str]  # questions to present to user
+    destinations: str  # raw text block of final recs
+
+    question_iteration: int
+    qe_grade: Literal["pass", "fail"]
+    qe_notes: List[str]
+
+    dest_iteration: int
+    dest_grade: Literal["pass", "fail"]
+    dest_notes: List[str]
+
+    question_history: List[Dict[str, str]]  # {"q": str, "a": str}
 
 
-# ————————————————
-# 4) Nodes
-# ————————————————
-def ask_activities(state: State) -> dict:
-    """Pass-through: in Django we already have initial info in state['info']."""
-    return {"clarified_once": False}
+# ------------------------------------------------------------
+# 4) Parsers & light prechecks
+# ------------------------------------------------------------
+_Q_LINE = re.compile(r"^\s*(\d+)\.\s+(.+?\?)\s*$")
 
 
-def question_generator(state: State) -> dict:
-    """Generate a compact numbered list of clarifying questions."""
-    prompt = (
-        f"I know the user likes: {state.get('info','')}\n"
-        "Produce a numbered list of clarifying questions you need to fully pin down their dream vacation.\n"
-        "Number them strictly as 1., 2., 3., … with each line ending in a question mark.\n"
-        "Keep it concise and ask **no more than 6** questions."
-    )
+def parse_questions(text: str, max_n: int = 6) -> List[str]:
+    qs: List[str] = []
+    for line in text.splitlines():
+        m = _Q_LINE.match(line)
+        if not m:
+            continue
+        qs.append(m.group(2).strip())
+    # de-dup, preserve order
+    seen = set()
+    out: List[str] = []
+    for q in qs:
+        k = q.lower()
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(q)
+    return out[:max_n]
+
+
+def precheck_questions(qs: List[str]) -> List[str]:
+    issues: List[str] = []
+    if not qs:
+        issues.append("No parseable questions.")
+        return issues
+    if len(qs) > 6:
+        issues.append("More than 6 questions.")
+    if any(not q.endswith("?") for q in qs):
+        issues.append("All questions must end with '?'.")
+    # simple redundancy n-gram overlap(redundeacny with shared sequences)
+    norm = [re.sub(r"[^a-z0-9 ]+", "", q.lower()) for q in qs]
+    for i in range(len(norm)):
+        ai = set(norm[i].split())
+        for j in range(i + 1, len(norm)):
+            aj = set(norm[j].split())
+            if ai and aj and len(ai & aj) / max(1, len(ai | aj)) > 0.7:
+                issues.append("Questions are redundant; merge similar ones.")
+                return issues
+    return issues
+
+
+def parse_destinations(text: str) -> List[Dict[str, str]]:
+    """
+    Expected:
+      1. City, Country
+         1–2 sentences of specifics
+      2. ...
+      3. ...
+    """
+    items: List[Dict[str, str]] = []
+    blocks = re.split(r"\n\s*(?=\d+\.\s)", text.strip())
+    for block in blocks:
+        m = re.match(r"^\s*\d+\.\s*(.+)$", block, flags=re.S)
+        if not m:
+            continue
+        body = m.group(1).strip()
+        lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
+        if not lines:
+            continue
+        title = lines[0]
+        details = " ".join(lines[1:]).strip()
+        if "," not in title:
+            # enforce "City, Country"
+            continue
+        items.append({"title": title, "details": details})
+    return items[:3]
+
+
+def precheck_destinations(items: List[Dict[str, str]]) -> List[str]:
+    issues: List[str] = []
+    if len(items) != 3:
+        issues.append("Did not produce exactly 3 destinations.")
+        return issues
+    cities = [it["title"].split(",")[0].strip().lower() for it in items]
+    if len(set(cities)) < 3:
+        issues.append("Duplicate city detected; ensure three distinct cities.")
+    for it in items:
+        if len(it.get("details", "").split()) < 5:
+            issues.append("Justification too short/generic.")
+            break
+    return issues
+
+
+def extract_json(s: str) -> str:
+    start = s.find("{")
+    end = s.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        raise ValueError("No JSON object found")
+    return s[start : end + 1]
+
+
+# ------------------------------------------------------------
+# 5) Question Graph: generator → evaluator → (opt? → generator) → END
+# ------------------------------------------------------------
+def question_generator(state: State) -> Dict[str, Any]:
+    info = state.get("info", "(none)")
+    prompt = f"""You are a travel planning assistant.
+
+Given the user's info:
+{info}
+
+Return a numbered list of up to 6 clarifying questions that—if answered—would most reduce uncertainty.
+STRICT FORMAT:
+- Use 1., 2., 3. numbering.
+- Each line must be a single question ending with '?'.
+- No preface or epilogue, only the list.
+"""
     msg = llm.invoke(
         [
-            SystemMessage(content="You are a travel-planning assistant."),
+            SystemMessage(content="Clarifying question generator"),
             HumanMessage(content=prompt),
         ]
     )
-    return {"feedback": msg.content}
+    text = msg.content
+    qs = parse_questions(text, max_n=6)
+    return {
+        "feedback": text,
+        "question_queue": qs,
+    }
 
 
-def clarifier(state: State) -> dict:
-    """
-    Convert the feedback blob into a question_queue once, then hand control
-    back to Django (we do NOT loop here).
-    """
-    if "question_queue" not in state:
-        state["question_queue"] = extract_all_questions(state.get("feedback", "") or "")
-    return state
+def question_evaluator(state: State) -> Dict[str, Any]:
+    info = state.get("info", "(none)")
+    qs = state.get("question_queue", []) or []
 
+    # fast precheck first (no LLM spend if clearly broken)
+    issues = precheck_questions(qs)
+    if issues:
+        return {"qe_grade": "fail", "qe_notes": [f"Heuristic: {x}" for x in issues]}
 
-def route_clarifier(state: State) -> str:
-    """
-    If there are questions to ask, stop the graph and let Django handle the Q/A loop.
-    Otherwise proceed to destination generation.
-    """
-    if state.get("question_queue"):
-        return "end"  # this label is mapped to END in add_conditional_edges
-    return "destination_generator"
+    rubric = f"""Evaluate the clarifying questions for:
+- Coverage of key unknowns (budget, travel window/season, vibe, flight-time tolerance, non-starters).
+- Non-redundancy and answerability.
+- Strict formatting (1. ...? lines, ≤6).
 
+Reply in JSON ONLY:
+{{"grade":"pass"|"fail","improvement_notes":["...","..."]}}
 
-def destination_generator(state: State) -> dict:
-    """
-    Generate exactly three destinations in a parser-friendly format
-    that your existing parse_destinations() can reliably split.
-    """
-    prompt = (
-        f"Now that I know the user likes: {state.get('info','')}\n"
-        "Return exactly THREE destinations as a numbered list 1., 2., 3.\n"
-        "Each item must start with 'City, Country' on the first line,\n"
-        "followed by 1–2 short lines describing why it fits.\n"
-        "Do not include any text before or after the list."
-    )
+User info (context): {info}
+Questions: {json.dumps(qs, ensure_ascii=False)}
+"""
     msg = llm.invoke(
-        [
-            SystemMessage(content="You are a travel-planning assistant."),
-            HumanMessage(content=prompt),
-        ]
+        [SystemMessage(content="Question evaluator"), HumanMessage(content=rubric)]
     )
-    return {"destinations": msg.content}
+    try:
+        data = json.loads(extract_json(msg.content))
+    except Exception:
+        data = {"grade": "fail", "improvement_notes": ["Evaluator returned non-JSON."]}
+
+    grade = "pass" if data.get("grade") == "pass" else "fail"
+    notes = data.get("improvement_notes") or ["Be more specific, remove redundancy."]
+    return {"qe_grade": grade, "qe_notes": notes}
 
 
-# (Unused in this Django flow but kept for compatibility/debug)
-def llm_call_generator(state: State) -> dict:
-    prompt = (
-        f"Based on: {state.get('info','')}"
-        + (f" and {state.get('follow_up')}" if state.get("follow_up") else "")
-        + "\nGive me three vacation spots."
+def question_optimizer(state: State) -> Dict[str, Any]:
+    it = (state.get("question_iteration") or 0) + 1
+    notes = state.get("qe_notes", [])
+    refinement = "- " + "\n- ".join(notes)
+    # Nudge via info, so generator incorporates changes naturally
+    new_info = (state.get("info") or "") + f"\nREFINEMENT_FOR_QUESTIONS:\n{refinement}"
+    return {"question_iteration": it, "info": new_info}
+
+
+def route_after_q_eval(state: State) -> str:
+    if state.get("qe_grade") == "pass":
+        return "end"
+    if (state.get("question_iteration") or 0) < MAX_Q_ITERS:
+        return "optimize"
+    return "end"
+
+
+def build_question_graph():
+    g = StateGraph(State)
+    g.add_node("question_generator", question_generator)
+    g.add_node("question_evaluator", question_evaluator)
+    g.add_node("question_optimizer", question_optimizer)
+
+    g.set_entry_point("question_generator")
+    g.add_edge("question_generator", "question_evaluator")
+    g.add_conditional_edges(
+        "question_evaluator",
+        route_after_q_eval,
+        {"optimize": "question_optimizer", "end": END},
     )
+    g.add_edge("question_optimizer", "question_generator")
+    return g.compile()
+
+
+# ------------------------------------------------------------
+# 6) Destination Graph: generator → evaluator → (opt? → generator) → END
+# ------------------------------------------------------------
+def destination_generator(state: State) -> Dict[str, Any]:
+    info = state.get("info", "(none)")
+    prompt = f"""You are a travel recommender.
+
+User constraints and preferences:
+{info}
+
+Return exactly 3 options, numbered 1.-3.
+Each option:
+- First line: City, Country
+- Next line(s): 1–2 sentences with specific neighborhoods/venues/seasonal hooks that match the constraints.
+
+No pre/post text."""
     msg = llm.invoke(
-        [
-            SystemMessage(content="You are a travel-planning assistant."),
-            HumanMessage(content=prompt),
-        ]
+        [SystemMessage(content="Destination generator"), HumanMessage(content=prompt)]
     )
-    return {"destinations": msg.content}
+    text = msg.content
+    return {"destinations": text}
 
 
-def llm_call_evaluator(state: State) -> dict:
-    check = (
-        f"Here are three proposed destinations: {state.get('destinations','')}\n"
-        f"Preferences: {state.get('info','')}"
-        + (f" AND {state.get('follow_up')}" if state.get("follow_up") else "")
-        + "\nAre these specific enough? If not, ask exactly one follow-up question."
+def destination_evaluator(state: State) -> Dict[str, Any]:
+    raw = state.get("destinations", "") or ""
+    items = parse_destinations(raw)
+
+    # fast precheck
+    issues = precheck_destinations(items)
+    if issues:
+        return {"dest_grade": "fail", "dest_notes": [f"Heuristic: {x}" for x in issues]}
+
+    rubric = f"""Evaluate these 3 destination options for:
+- Specificity (named neighborhoods/venues/seasonal timing).
+- Fit to constraints in the user info.
+- Diversity (not three near-identical options).
+
+Reply in JSON ONLY:
+{{"grade":"pass"|"fail","improvement_notes":["...","..."]}}
+
+Candidates: {json.dumps(items, ensure_ascii=False)}
+"""
+    msg = llm.invoke(
+        [SystemMessage(content="Destination evaluator"), HumanMessage(content=rubric)]
     )
-    grade = evaluator.invoke(check)
-    return {"valid_or_not": grade.grade, "feedback": grade.feedback}
+    try:
+        data = json.loads(extract_json(msg.content))
+    except Exception:
+        data = {"grade": "fail", "improvement_notes": ["Evaluator returned non-JSON."]}
+
+    grade = "pass" if data.get("grade") == "pass" else "fail"
+    notes = data.get("improvement_notes") or [
+        "Increase specificity and align with constraints."
+    ]
+    return {"dest_grade": grade, "dest_notes": notes}
 
 
-# ————————————————
-# 5) Build the graph
-# ————————————————
-builder = StateGraph(State)
-builder.add_node("ask_activities", ask_activities)
-builder.add_node("question_generator", question_generator)
-builder.add_node("clarifier", clarifier)
-builder.add_node("destination_generator", destination_generator)
-
-builder.add_edge(START, "ask_activities")
-builder.add_edge("ask_activities", "question_generator")
-builder.add_edge("question_generator", "clarifier")
-
-builder.add_conditional_edges(
-    "clarifier",
-    route_clarifier,
-    {
-        "destination_generator": "destination_generator",
-        "end": END,  # <- map the router's "end" label to END sentinel
-    },
-)
-
-builder.add_edge("destination_generator", END)
-try:
-    optimizer_workflow = builder.compile()
-except:
-    optimizer_workflow = None
+def destination_optimizer(state: State) -> Dict[str, Any]:
+    it = (state.get("dest_iteration") or 0) + 1
+    notes = state.get("dest_notes", [])
+    refinement = "- " + "\n- ".join(notes)
+    new_info = (
+        state.get("info") or ""
+    ) + f"\nREFINEMENT_FOR_DESTINATIONS:\n{refinement}"
+    return {"dest_iteration": it, "info": new_info}
 
 
-# ————————————————
-# 6) Django-facing wrapper
-# ————————————————
+def route_after_dest_eval(state: State) -> str:
+    if state.get("dest_grade") == "pass":
+        return "end"
+    if (state.get("dest_iteration") or 0) < MAX_DEST_ITERS:
+        return "regen"
+    return "end"
+
+
+def build_destination_graph():
+    g = StateGraph(State)
+    g.add_node("destination_generator", destination_generator)
+    g.add_node("destination_evaluator", destination_evaluator)
+    g.add_node("destination_optimizer", destination_optimizer)
+
+    g.set_entry_point("destination_generator")
+    g.add_edge("destination_generator", "destination_evaluator")
+    g.add_conditional_edges(
+        "destination_evaluator",
+        route_after_dest_eval,
+        {"regen": "destination_optimizer", "end": END},
+    )
+    g.add_edge("destination_optimizer", "destination_generator")
+    return g.compile()
+
+
+# ------------------------------------------------------------
+# 7) Public API (keeps your external Q&A loop style)
+# ------------------------------------------------------------
 class WorkflowManager:
     """
-    Orchestrates the LangGraph workflow for Django integration.
-    Django handles the Q/A loop; the graph only sets up the queue or produces final picks.
+    Server-facing API:
+      1) process_initial_message(info) -> state with high-quality question_queue
+      2) get_next_question(state) -> str | None
+      3) process_clarification_answer(state, answer) -> updated state (app owns loop)
+      4) finalize_recommendations(state) -> dict with parsed destinations & notes
     """
 
-    def __init__(self):
-        self.workflow = optimizer_workflow
+    def __init__(self) -> None:
+        self._q_runner = build_question_graph()
+        self._d_runner = build_destination_graph()
 
-    def process_initial_message(self, user_message: str) -> dict:
-        """
-        Start the workflow with initial user preferences and build the question queue.
-        (No fallback question injected here by design.)
-        """
-        state = {"info": user_message}
-        result = self.workflow.invoke(state)
+    # Phase 1: prepare clarifying questions (eval + optional optimize)
+    def process_initial_message(self, info: str) -> Dict[str, Any]:
+        state: State = {
+            "info": (info or "").strip(),
+            "question_queue": [],
+            "question_iteration": 0,
+            "question_history": [],
+        }
+        state = self._q_runner(state)
+        return dict(state)
 
-        # Build question queue from feedback and cap length
-        questions = extract_all_questions(result.get("feedback", "") or "")
-        result["question_queue"] = questions[:6]  # cap at 6 to keep UX tight
-        return result
+    def get_next_question(self, state: Dict[str, Any]) -> Optional[str]:
+        queue = state.get("question_queue") or []
+        return queue[0] if queue else None
 
     def process_clarification_answer(
-        self, current_state: dict, user_answer: str
-    ) -> dict:
-        """
-        Add the user's answer, pop the question, and either:
-          - return updated state with remaining questions, or
-          - generate final destinations when the queue is empty.
-        """
-        current_state["info"] = (
-            current_state.get("info", "") + " " + user_answer
-        ).strip()
+        self, state: Dict[str, Any], answer: str
+    ) -> Dict[str, Any]:
+        # Pop current question, append to history, and inline the Q/A into info (simple merge).
+        queue = state.get("question_queue") or []
+        if not queue:
+            return state
+        q = queue.pop(0)
+        ans = (answer or "").strip()
+        info = state.get("info") or ""
+        info += f"\nQ: {q}\nA: {ans}"
+        hist = state.get("question_history") or []
+        hist.append({"q": q, "a": ans})
+        state["info"] = info
+        state["question_queue"] = queue
+        state["question_history"] = hist
+        return state
 
-        if current_state.get("question_queue"):
-            current_state["question_queue"].pop(0)
+    # Phase 2: finalize with destination evaluator loop
+    def finalize_recommendations(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        if state.get("question_queue"):
+            # let caller decide what to do if questions remain
+            return {
+                "error": "There are remaining clarifying questions. Finish them before finalizing.",
+                "next_question": state["question_queue"][0],
+            }
+        state.setdefault("dest_iteration", 0)
+        state = self._d_runner(state)
 
-        if not current_state.get("question_queue"):
-            # Directly generate final destinations (avoid re-running the whole graph)
-            result = destination_generator(current_state)
-            return {**current_state, **result}
+        raw = state.get("destinations", "") or ""
+        items = parse_destinations(raw)
+        notes = state.get("dest_notes") or []
+        grade = state.get("dest_grade") or "fail"
 
-        return current_state
-
-    def get_next_question(self, state: dict) -> str | None:
-        """Return the next question to ask, if any."""
-        q = state.get("question_queue") or []
-        return q[0] if q else None
-
-    # (Optional) helpers to convert to/from DB storage
-    def state_to_db_format(self, state: dict) -> dict:
         return {
-            "user_info": state.get("info", ""),
-            "question_queue": state.get("question_queue", []),
-            "destinations_text": state.get("destinations", ""),
-            "feedback": state.get("feedback", ""),
-        }
-
-    def db_to_state_format(self, db_data: dict) -> dict:
-        return {
-            "info": db_data.get("user_info", ""),
-            "question_queue": db_data.get("question_queue", []),
-            "destinations": db_data.get("destinations_text", ""),
-            "feedback": db_data.get("feedback", ""),
+            "grade": grade,
+            "destinations": items,  # [{title, details}, ...]
+            "notes": notes,  # evaluator/heuristic guidance
+            "raw": raw,  # original text block (useful for logs)
+            "iterations": state.get("dest_iteration", 0),
         }
