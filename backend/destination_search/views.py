@@ -1,3 +1,5 @@
+# destination_search/views.py - Enhanced with OpenAPI/Swagger Documentation
+
 import logging
 
 from api.decorators import rate_limit_api
@@ -8,7 +10,16 @@ from django.forms import ValidationError
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django_ratelimit.decorators import ratelimit
-from rest_framework import status
+
+# ADD THESE IMPORTS for Swagger documentation
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+    inline_serializer,
+)
+from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -22,6 +33,165 @@ logger = logging.getLogger(__name__)
 workflow_manager = WorkflowManager()
 
 
+@extend_schema(
+    summary="Send a message to the AI destination chat",
+    description="""
+    The core endpoint for AI-powered destination discovery. Users describe their ideal vacation,
+    and the AI engages in a conversation to gather preferences and recommend destinations.
+
+    **Conversation Flow:**
+    1. **Initial Message** - User describes what they're looking for
+    2. **Clarification Questions** - AI asks 2-5 questions to understand preferences
+    3. **Destination Recommendations** - AI provides 3 personalized destination suggestions
+    4. **Post-Recommendations** - User can ask questions or commit to a destination
+
+    **Rate Limit:** 10 messages per minute per user
+
+    **Important Notes:**
+    - Trip must belong to the authenticated user
+    - Empty or whitespace-only messages are rejected
+    - Trip status automatically updates to 'ai_chat_active' when chat starts
+    - When user commits to a destination, it's saved to the trip and status changes to 'destinations_selected'
+    """,
+    request=inline_serializer(
+        name="ChatMessageRequest",
+        fields={
+            "trip_id": serializers.IntegerField(
+                help_text="ID of the trip to chat about"
+            ),
+            "message": serializers.CharField(
+                help_text="User's message to the AI assistant"
+            ),
+        },
+    ),
+    responses={
+        200: OpenApiResponse(
+            description="Message processed successfully",
+            examples=[
+                OpenApiExample(
+                    "Initial Message Response",
+                    value={
+                        "user_message": {
+                            "id": 1,
+                            "is_user": True,
+                            "content": "I want a beach vacation",
+                            "timestamp": "2024-01-20T12:00:00Z",
+                        },
+                        "ai_message": {
+                            "id": 2,
+                            "is_user": False,
+                            "content": "What's your budget for this trip?",
+                            "timestamp": "2024-01-20T12:00:01Z",
+                        },
+                        "conversation_id": 1,
+                        "stage": "asking_clarifications",
+                        "progress": 20,
+                        "metadata": {
+                            "question_number": 1,
+                            "total_questions": 5,
+                        },
+                    },
+                ),
+                OpenApiExample(
+                    "Destinations Generated Response",
+                    value={
+                        "user_message": {
+                            "id": 11,
+                            "is_user": True,
+                            "content": "Around $3000",
+                            "timestamp": "2024-01-20T12:05:00Z",
+                        },
+                        "ai_message": {
+                            "id": 12,
+                            "is_user": False,
+                            "content": "Here are 3 destinations...",
+                            "timestamp": "2024-01-20T12:05:02Z",
+                        },
+                        "conversation_id": 1,
+                        "stage": "destinations_complete",
+                        "progress": 100,
+                        "destinations": [
+                            {
+                                "name": "Bali",
+                                "country": "Indonesia",
+                                "description": "Tropical paradise with beaches and culture",
+                            },
+                            {
+                                "name": "Greece",
+                                "country": "Greece",
+                                "description": "Mediterranean beauty with islands",
+                            },
+                            {
+                                "name": "Thailand",
+                                "country": "Thailand",
+                                "description": "Affordable beaches and rich culture",
+                            },
+                        ],
+                    },
+                ),
+            ],
+        ),
+        400: OpenApiResponse(
+            description="Validation error",
+            examples=[
+                OpenApiExample(
+                    "Missing Fields",
+                    value={"error": "trip_id and message are required"},
+                ),
+                OpenApiExample(
+                    "Empty Message",
+                    value={"error": "trip_id and message are required"},
+                ),
+                OpenApiExample(
+                    "Invalid Input Detected",
+                    value={"error": "Invalid input detected"},
+                ),
+            ],
+        ),
+        404: OpenApiResponse(
+            description="Trip not found or you don't have permission to access it"
+        ),
+        429: OpenApiResponse(
+            description="Rate limit exceeded - too many messages sent (10 per minute)"
+        ),
+        500: OpenApiResponse(
+            description="AI service error - the recommendation engine encountered an issue",
+            examples=[
+                OpenApiExample(
+                    "AI Service Error",
+                    value={"error": "An error occurred processing your message"},
+                )
+            ],
+        ),
+    },
+    examples=[
+        OpenApiExample(
+            "Initial Message",
+            value={
+                "trip_id": 1,
+                "message": "I want a relaxing beach vacation with good food",
+            },
+            request_only=True,
+        ),
+        OpenApiExample(
+            "Answer Clarification",
+            value={
+                "trip_id": 1,
+                "message": "My budget is around $3000 for 2 weeks",
+            },
+            request_only=True,
+        ),
+        OpenApiExample(
+            "Commitment to Destination",
+            value={
+                "trip_id": 1,
+                "message": "Let's go with Bali! That sounds perfect.",
+            },
+            request_only=True,
+        ),
+    ],
+    tags=["Destination Discovery"],
+)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 @ratelimit(key="user", rate="10/m", method="POST", block=False)
@@ -29,12 +199,6 @@ def chat_message(request):
     """
     Main endpoint for destination discovery chat.
     Processes messages through the LangGraph workflow.
-
-    Expected payload:
-    {
-        "trip_id": 123,
-        "message": "I want a beach vacation"
-    }
     """
     # Check if rate limited
     if getattr(request, "limited", False):
@@ -45,13 +209,11 @@ def chat_message(request):
 
     try:
         trip_id = request.data.get("trip_id")
-        ## message_text = unescape(raw)
         message_text = request.data.get("message", "").strip()
 
         # Validate and sanitize input
         try:
             validate_no_sql_injection(message_text)
-            ##message_text = sanitize_input(message_text)
         except ValidationError as e:
             return Response(
                 {"error": "Invalid input detected"}, status=status.HTTP_400_BAD_REQUEST
@@ -339,6 +501,74 @@ def handle_post_destination_message(message_text, conversation, conv_state, trip
     return "I'd be happy to tell you more about any of these destinations! Which one interests you most, or would you like me to suggest different options?"
 
 
+@extend_schema(
+    summary="Get conversation history for a trip",
+    description="""
+    Retrieve the complete conversation history between the user and AI for a specific trip.
+
+    **Returns:**
+    - All messages in chronological order
+    - Current conversation stage and progress
+    - Latest destination recommendations (if generated)
+    - Trip information
+
+    **Conversation not started yet?**
+    - Returns 404 with helpful message
+    - Start a conversation by sending a message to the chat endpoint
+    """,
+    responses={
+        200: OpenApiResponse(
+            description="Conversation retrieved successfully",
+            examples=[
+                OpenApiExample(
+                    "Conversation with Destinations",
+                    value={
+                        "conversation_id": 1,
+                        "trip_id": 1,
+                        "trip_title": "Summer Vacation 2024",
+                        "messages": [
+                            {
+                                "id": 1,
+                                "is_user": True,
+                                "content": "I want a beach vacation",
+                                "timestamp": "2024-01-20T12:00:00Z",
+                            },
+                            {
+                                "id": 2,
+                                "is_user": False,
+                                "content": "What's your budget?",
+                                "timestamp": "2024-01-20T12:00:01Z",
+                            },
+                        ],
+                        "state": {
+                            "current_stage": "destinations_complete",
+                            "progress": 100,
+                            "questions_asked": 5,
+                            "total_questions": 5,
+                        },
+                        "destinations": [
+                            {
+                                "name": "Bali",
+                                "country": "Indonesia",
+                                "description": "Tropical paradise",
+                            }
+                        ],
+                    },
+                )
+            ],
+        ),
+        404: OpenApiResponse(
+            description="No conversation started yet for this trip",
+            examples=[
+                OpenApiExample(
+                    "No Conversation",
+                    value={"message": "No conversation started yet for this trip"},
+                )
+            ],
+        ),
+    },
+    tags=["Destination Discovery"],
+)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_conversation(request, trip_id):
@@ -422,6 +652,37 @@ def get_conversation(request, trip_id):
         )
 
 
+@extend_schema(
+    summary="Reset/delete the conversation for a trip",
+    description="""
+    Start over with destination discovery by deleting the entire conversation.
+
+    **What gets deleted:**
+    - All conversation messages
+    - Conversation state and progress
+    - Generated destination recommendations
+
+    **What gets reset:**
+    - Trip status changes back to "planning"
+    - Destination selection is cleared from trip
+
+    **Warning:** This action cannot be undone. The conversation history will be permanently deleted.
+    """,
+    request=None,
+    responses={
+        200: OpenApiResponse(
+            description="Conversation reset successfully",
+            examples=[
+                OpenApiExample(
+                    "Reset Success",
+                    value={"message": "Conversation reset successfully"},
+                )
+            ],
+        ),
+        404: OpenApiResponse(description="Trip not found or you don't have permission"),
+    },
+    tags=["Destination Discovery"],
+)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def reset_conversation(request, trip_id):
