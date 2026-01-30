@@ -31,7 +31,10 @@ SECRET_KEY = os.environ.get(
     "SECRET_KEY",
     "django-insecure-fallback-key-for-development-only-change-this-in-production-very-long-key-12345",
 )
-
+GOOGLE_PLACES_API_KEY = os.environ.get(
+    "GOOGLE_API_KEY",
+    "django-insecure-fallback-key-for-development-only-change-this-in-production-very-long-key-6789101267",
+)
 # Allow missing SECRET_KEY during Docker build (collectstatic, etc.)
 if not SECRET_KEY:
     if "collectstatic" in sys.argv or "compilemessages" in sys.argv:
@@ -62,6 +65,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "destination_search",
+    "food",
     "drf_spectacular",
 ]
 
@@ -282,3 +286,12 @@ LOGGING = {
         },
     },
 }
+
+# Use SQLite for tests (faster and no connection issues)
+if "test" in sys.argv:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",  # In-memory database (super fast!)
+        }
+    }
